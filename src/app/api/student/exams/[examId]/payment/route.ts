@@ -79,6 +79,6 @@ export async function POST(request: NextRequest, context: Context) {
     return NextResponse.json({ status: "verified", statusToken: token }, { status: 201 });
   } catch (error) {
     console.error("Atlas payment submission failed:", error instanceof Error ? error.name : "UnknownError");
-    return NextResponse.json({ error: "Payment details could not be submitted. Check the Atlas connection." }, { status: 503 });
+    return NextResponse.json({ error: "Payment details could not be submitted. Please try again shortly." }, { status: 503 });
   }
 }

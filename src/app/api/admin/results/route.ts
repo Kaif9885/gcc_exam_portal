@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Admin results fetch error:", error instanceof Error ? error.message : "Unknown");
-    return NextResponse.json({ error: "Could not load examination results from Atlas." }, { status: 503 });
+    return NextResponse.json({ error: "Could not load examination results." }, { status: 503 });
   }
 }
 

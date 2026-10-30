@@ -62,6 +62,6 @@ export async function POST(request: NextRequest, context: Context) {
     return NextResponse.json({ attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString() }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Atlas exam start failed:", error instanceof Error ? error.name : "UnknownError");
-    return NextResponse.json({ error: "Could not start this exam from Atlas." }, { status: 503 });
+    return NextResponse.json({ error: "Could not start this exam. Please try again shortly." }, { status: 503 });
   }
 }

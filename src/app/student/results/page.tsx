@@ -1,3 +1,3 @@
-import { MongoStudentActionPages } from "@/components/MongoStudentActionPages";
+import { StudentActionPages } from "@/components/StudentActionPages";
 
-export default function StudentResultsPage() { return <MongoStudentActionPages mode="results"/>; }
+export default function StudentResultsPage() { return <StudentActionPages mode="results"/>; }

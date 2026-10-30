@@ -8,7 +8,7 @@ type ExamQuestion = { id: string; body: string; position: number; marks: number;
 type ExamState = { attempt: { id: string; expiresAt: string }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
 type Submission = { marks: number; maxMarks: number; percentage: number; correctCount: number; incorrectCount: number; unansweredCount: number; submittedAt: string; answerReview: { questionId: string; selectedOptionId: string | null; correctOptionId: string | null; isCorrect: boolean; marks: number }[] };
 
-export function MongoStudentExam() {
+export function StudentExam() {
   const { examId } = useParams<{ examId: string }>();
   const router = useRouter();
   const [exam, setExam] = useState<ExamState | null>(null);

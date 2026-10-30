@@ -54,6 +54,7 @@ export function StudentExamGate({ onSignIn, onTeacherLogin }: Props) {
   const [demoError, setDemoError] = useState("");
   const [payerName, setPayerName] = useState("");
   const [paidAt, setPaidAt] = useState("");
+  const [qrUnavailable, setQrUnavailable] = useState(false);
   const paymentQr = process.env.NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL || "/payments/phonepe-payment-qr.jpg";
   const availableSubjects = classGroup === "class-9" ? ["Physics"] : ["class-8", "class-10-boys", "class-10-girls", "class-11", "class-12"].includes(classGroup) ? ["Biology"] : [];
   const availableChapters = subject === "Biology" && classGroup === "class-8" ? ["Microbes: Friend and Foe"]

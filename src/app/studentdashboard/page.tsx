@@ -1,3 +1,3 @@
-import { MongoStudentDashboard } from "@/components/MongoStudentDashboard";
+import { StudentDashboard } from "@/components/StudentDashboard";
 
-export default function StudentDashboardPage() { return <MongoStudentDashboard/>; }
+export default function StudentDashboardPage() { return <StudentDashboard/>; }

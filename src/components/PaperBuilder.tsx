@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 const groups = [
   { name: "Class 8", slug: "class-8" }, { name: "Class 9", slug: "class-9" },
@@ -43,14 +42,18 @@ export function PaperBuilder({ onCreated, initialGroupSlug, initialSubject, init
   async function createPaper(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("");
     try {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("create_exam_paper", {
-        p_title: title.trim(), p_subject: subject, p_chapter_name: chapter.trim(), p_academic_session: session.trim(),
-        p_group_slug: group, p_share_class10: shareClass10 && isClass10, p_duration_minutes: Number(duration),
-        p_passing_marks: Number(passingMarks), p_publish: publish, p_questions: questions,
+      const res = await fetch("/api/teacher/papers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(), subject, chapter_name: chapter.trim(), academic_session: session.trim(),
+          group_slug: group, share_class10: shareClass10 && isClass10, duration_minutes: Number(duration),
+          passing_marks: Number(passingMarks), publish, questions,
+        }),
       });
-      if (error) throw error;
-      setMessage(publish ? "Question paper created and published to the selected class group(s)." : "Question paper saved as a draft. It is not visible to students until published.");
+      const json = await res.json() as { message?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Paper could not be created.");
+      setMessage(json.message ?? (publish ? "Question paper created and published to the selected class group(s)." : "Question paper saved as a draft. It is not visible to students until published."));
       setTitle(""); setChapter(""); setQuestions([newQuestion()]); onCreated();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Paper could not be created."); }
     finally { setBusy(false); }

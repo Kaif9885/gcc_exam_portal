@@ -18,6 +18,6 @@ export async function GET(request: NextRequest) {
     })) });
   } catch (error) {
     console.error("Atlas payment review list failed:", error instanceof Error ? error.name : "UnknownError");
-    return NextResponse.json({ error: "Could not load payment submissions from Atlas." }, { status: 503 });
+    return NextResponse.json({ error: "Could not load payment submissions." }, { status: 503 });
   }
 }

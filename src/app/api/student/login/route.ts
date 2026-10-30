@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     const db = await getMongoDb();
     const group = await db.collection("examGroups").findOne({ slug: classSlug });
-    if (!group) return NextResponse.json({ error: "The selected class is not configured in Atlas." }, { status: 503 });
+    if (!group) return NextResponse.json({ error: "The selected class is currently unavailable. Please try again shortly." }, { status: 503 });
     const groupId = String(group.id ?? group._id);
     const roster = await db.collection("studentRoster").findOne({ exam_group_id: groupId, roll_number: rollNumber, authoritative: true });
     if (!roster || String(roster.full_name).trim().toLocaleLowerCase() !== fullName.toLocaleLowerCase()) {
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(studentSessionCookieName, session.token, studentSessionCookieOptions(session.maxAge));
     return response;
   } catch (error) {
-    console.error("MongoDB student sign-in failed:", error instanceof Error ? error.name : "UnknownError");
-    return NextResponse.json({ error: "Could not connect to the school database. Check the Atlas cluster and MONGODB_URI." }, { status: 503 });
+    console.error("MongoDB student sign-in failed:", error);
+    return NextResponse.json({ error: "Unable to sign in at this time. Please try again in a few moments." }, { status: 503 });
   }
 }

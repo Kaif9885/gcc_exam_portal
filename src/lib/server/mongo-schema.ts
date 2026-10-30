@@ -22,10 +22,19 @@ const indexes: Record<string, IndexDescription[]> = {
 
 /** Creates the application's collections and indexes without modifying stored records. */
 export async function ensureMongoSchema(db: Db) {
-  const existing = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name));
-  for (const [name, collectionIndexes] of Object.entries(indexes)) {
-    if (!existing.has(name)) await db.createCollection(name);
-    for (const index of collectionIndexes) await db.collection(name).createIndex(index.key, { unique: index.unique ?? false });
+  try {
+    const existing = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name));
+    for (const [name, collectionIndexes] of Object.entries(indexes)) {
+      if (!existing.has(name)) {
+        try { await db.createCollection(name); } catch { /* ignore if already exists */ }
+      }
+      for (const index of collectionIndexes) {
+        try {
+          await db.collection(name).createIndex(index.key, { unique: index.unique ?? false });
+        } catch { /* ignore if index already exists with different options */ }
+      }
+    }
+  } catch (error) {
+    console.warn("MongoDB schema check warning (proceeding):", error);
   }
-
 }

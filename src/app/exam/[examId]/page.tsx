@@ -1,3 +1,3 @@
-import { MongoStudentExam } from "@/components/MongoStudentExam";
+import { StudentExam } from "@/components/StudentExam";
 
-export default function ExamPage() { return <MongoStudentExam/>; }
+export default function ExamPage() { return <StudentExam/>; }

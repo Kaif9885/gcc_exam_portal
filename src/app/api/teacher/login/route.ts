@@ -27,6 +27,6 @@ export async function POST(request: NextRequest) {
     response.cookies.set(teacherSessionCookieName, session.token, teacherSessionCookieOptions(session.maxAge));
     return response;
   } catch {
-    return NextResponse.json({ error: "Teacher session is not configured. Check TEACHER_SESSION_SECRET." }, { status: 503 });
+    return NextResponse.json({ error: "Teacher authentication is temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }
