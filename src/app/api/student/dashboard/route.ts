@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
       if (!exam) return [];
       return [{
         examId: String(row.exam_id), title: String(exam.title), subject: String(exam.subject), chapter: String(exam.chapter_name ?? ""),
-        examDate: exam.starts_at ?? row.submitted_at ?? exam.created_at ?? null, submittedAt: row.submitted_at ?? null,
+        examDate: attemptByExam.get(String(row.exam_id))?.started_at ?? exam.starts_at ?? row.submitted_at ?? exam.created_at ?? null,
+        submittedAt: row.submitted_at ?? null,
         marks: Number(row.marks_obtained ?? 0), maxMarks: Number(row.max_marks ?? 0), percentage: Number(row.percentage ?? 0),
       }];
     }).sort((left, right) => new Date(right.submittedAt ?? right.examDate ?? 0).getTime() - new Date(left.submittedAt ?? left.examDate ?? 0).getTime());

@@ -177,7 +177,7 @@ export function StudentExam() {
           <tbody>
             <tr><th scope="row">Student name</th><td>{exam.student.fullName}</td></tr>
             <tr><th scope="row">Roll No.</th><td>{exam.student.rollNumber}</td></tr>
-            <tr><th scope="row">Exam date</th><td>{resultDateLabel(exam.attempt.startedAt)}</td></tr>
+            <tr><th scope="row">Exam start date</th><td>{resultDateLabel(exam.attempt.startedAt)}</td></tr>
             <tr><th scope="row">Submitted</th><td>{resultDateLabel(result.submittedAt)}</td></tr>
             <tr><th scope="row">Total marks</th><td>{result.maxMarks}</td></tr>
             <tr><th scope="row">Obtained marks</th><td>{result.marks}</td></tr>

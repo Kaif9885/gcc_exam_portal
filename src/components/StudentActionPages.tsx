@@ -103,8 +103,8 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                       <tbody>
                         <tr><th scope="row">Student name</th><td>{payload.student.fullName}</td></tr>
                         <tr><th scope="row">Roll No.</th><td>{payload.student.rollNumber}</td></tr>
-                        <tr><th scope="row">Exam date</th><td>{dateLabel(result.examDate)}</td></tr>
-                        {result.submittedAt && <tr><th scope="row">Submitted</th><td>{dateLabel(result.submittedAt)}</td></tr>}
+                        <tr><th scope="row">Exam start date</th><td>{dateLabel(result.examDate)}</td></tr>
+                        <tr><th scope="row">Submitted</th><td>{dateLabel(result.submittedAt)}</td></tr>
                         <tr><th scope="row">Total marks</th><td>{result.maxMarks}</td></tr>
                         <tr><th scope="row">Obtained marks</th><td>{result.marks}</td></tr>
                         <tr><th scope="row">Percentage</th><td>{Number(result.percentage).toFixed(1)}%</td></tr>
