@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       const result = resultByExam.get(id);
       const startsAt = exam.starts_at ? new Date(exam.starts_at).getTime() : null;
       const endsAt = exam.ends_at ? new Date(exam.ends_at).getTime() : null;
-      let status = attempt?.status ?? "available";
+      let status = attempt?.status === "locked" ? "available" : attempt?.status ?? "available";
       if (!attempt && startsAt !== null && now < startsAt) status = "scheduled";
       if (!attempt && endsAt !== null && now > endsAt) status = "closed";
       return {

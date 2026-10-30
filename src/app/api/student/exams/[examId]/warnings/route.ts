@@ -44,6 +44,7 @@ export async function POST(request: NextRequest, context: Context) {
           warning_count: nextWarningCount,
           last_focus_warning_at: now,
           last_focus_warning_event: body.event,
+          ...(nextWarningCount >= 4 ? { status: "locked" } : {}),
         },
       },
     );

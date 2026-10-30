@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -228,14 +228,17 @@ export function AdminDashboard() {
     }
   }, []);
 
-  // Initialize data on mount
+  // Load each tab's data only when the user opens that tab.
+  const loadedTabs = useRef(new Set<AdminTab>());
   useEffect(() => {
-    void loadResults();
-    void loadPayments();
-    void loadPapers();
-    void loadSessions();
-    void loadStudents();
-  }, [loadResults, loadPayments, loadPapers, loadSessions, loadStudents]);
+    if (loadedTabs.current.has(tab)) return;
+    loadedTabs.current.add(tab);
+    if (tab === "results") void loadResults();
+    if (tab === "payments") void loadPayments();
+    if (tab === "papers") void loadPapers();
+    if (tab === "sessions") void loadSessions();
+    if (tab === "students") void loadStudents();
+  }, [tab, loadResults, loadPayments, loadPapers, loadSessions, loadStudents]);
 
   // Periodic refresh for live sessions if on sessions tab
   useEffect(() => {

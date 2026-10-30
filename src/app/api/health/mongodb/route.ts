@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
+import { ensureMongoSchema } from "@/lib/server/mongo-schema";
 
 export async function GET() {
   try {
     const db = await getMongoDb();
+    await ensureMongoSchema(db);
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {

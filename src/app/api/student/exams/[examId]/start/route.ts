@@ -31,12 +31,39 @@ export async function POST(request: NextRequest, context: Context) {
     const now = new Date();
     if (exam.starts_at && now < new Date(exam.starts_at)) return NextResponse.json({ error: "This exam has not started yet." }, { status: 409 });
     if (exam.ends_at && now > new Date(exam.ends_at)) return NextResponse.json({ error: "This exam schedule has ended." }, { status: 409 });
-    let attempt = await db.collection("examAttempts").findOne({ exam_id: examId, student_id: studentId });
+    const attempts = db.collection("examAttempts");
+    let attempt = await attempts.findOne({ exam_id: examId, student_id: studentId });
+    let restarted = false;
     if (attempt && attempt.status !== "in_progress") {
-      const message = attempt.status === "locked"
-        ? "This attempt was locked after repeated departures from the examination screen. Contact your teacher."
-        : "This examination has already been submitted.";
-      return NextResponse.json({ error: message }, { status: 409 });
+      if (attempt.status !== "locked") {
+        return NextResponse.json({ error: "This examination has already been submitted." }, { status: 409 });
+      }
+      const durationSeconds = Number(exam.duration_seconds || 2700);
+      const restartedAt = new Date();
+      const expiresAt = new Date(restartedAt.getTime() + durationSeconds * 1000);
+      const reset = await attempts.updateOne(
+        { _id: attempt._id, status: "locked" },
+        {
+          $set: {
+            status: "in_progress",
+            started_at: restartedAt,
+            expires_at: expiresAt,
+            submitted_at: null,
+            session_token: randomUUID(),
+            warning_count: 0,
+            restarted_at: restartedAt,
+          },
+          $unset: { last_focus_warning_at: "", last_focus_warning_event: "" },
+        },
+      );
+      if (reset.matchedCount) {
+        await db.collection("studentAnswers").deleteMany({ attempt_id: String(attempt.id ?? attempt._id) });
+        attempt = { ...attempt, status: "in_progress", started_at: restartedAt, expires_at: expiresAt, submitted_at: null, warning_count: 0 };
+        restarted = true;
+      } else {
+        attempt = await attempts.findOne({ _id: attempt._id, status: "in_progress" });
+        if (!attempt) return NextResponse.json({ error: "Could not restart this exam. Please try again." }, { status: 409 });
+      }
     }
     if (!attempt) {
       const attemptId = `attempt:${randomUUID()}`;
@@ -64,7 +91,7 @@ export async function POST(request: NextRequest, context: Context) {
         selectedOptionId: answer?.option_id ? String(answer.option_id) : null,
       };
     });
-    return NextResponse.json({ attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString(), warningCount: Number(attempt.warning_count ?? 0) }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ restarted, attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString(), warningCount: Number(attempt.warning_count ?? 0) }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Atlas exam start failed:", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json({ error: "Could not start this exam. Please try again shortly." }, { status: 503 });

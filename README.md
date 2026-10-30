@@ -40,7 +40,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 ## Current implementation
 
 - Student flow: `/student` verifies the student's name, class and roll number against the approved roster, then establishes the existing student session. `/studentdashboard` shows assigned exams and available marks. Selecting an exam opens `/student/payment/:examId`; staff must verify its ₹20 payment before the app opens `/exam/:examId`. `/student/result` shows that student's submitted result.
-- MongoDB data model: see `docs/mongodb-data-model.md`. The collections and indexes are initialized by `getMongoDb()`; the health route is `/api/health/mongodb`.
+- MongoDB data model: see `docs/mongodb-data-model.md`. Visit `/api/health/mongodb` once after configuring Atlas to initialize collections and indexes; normal app requests reuse the connection without repeating schema checks.
 - Other pages include `/auth/login`, `/auth/callback`, `/teacher/login`, `/teacher`, `/teacher/results`, `/teacher/papers`, `/teacher/sessions`, `/admin` and `/admin/payments`. Legacy registration pages remain available at `/registration/details`, `/registration/exam`, `/registration/payment` and `/registration/demo-result`.
 - Middleware protects student/exam routes with the authorized student account check, teacher routes with the signed teacher session or authorized staff account, and payment review with the admin role. The teacher name/password session is restricted to its selected portal mode.
 - Back/Forward controls use browser history on portal pages and are hidden during an active exam.

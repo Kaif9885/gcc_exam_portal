@@ -1,12 +1,11 @@
 import { type Collection, type Db, type Document, MongoClient } from "mongodb";
-import { ensureMongoSchema } from "@/lib/server/mongo-schema";
 
 export type SchoolDoc = Document & { _id?: string };
 export type SchoolDb = Omit<Db, "collection"> & {
   collection: <TSchema extends Document = SchoolDoc>(name: string) => Collection<TSchema>;
 };
 
-type MongoCache = { client: MongoClient | null; promise: Promise<MongoClient> | null; dbPromise: Promise<SchoolDb> | null; uri?: string };
+type MongoCache = { client: MongoClient | null; promise: Promise<MongoClient> | null; dbPromise: Promise<SchoolDb> | null; uri?: string; databaseName?: string };
 const globalForMongo = globalThis as typeof globalThis & { __schoolMongo?: MongoCache };
 const cache = globalForMongo.__schoolMongo ?? { client: null, promise: null, dbPromise: null };
 globalForMongo.__schoolMongo = cache;
@@ -15,9 +14,10 @@ export async function getMongoDb(): Promise<SchoolDb> {
   const uri = process.env.MONGODB_URI;
   const databaseName = process.env.MONGODB_DB || "glorious_exams";
   if (!uri) throw new Error("MONGODB_URI is not configured. Add your MongoDB Atlas connection string to .env.local.");
-  if (cache.uri !== uri) {
+  if (cache.uri !== uri || cache.databaseName !== databaseName) {
     const previousClient = cache.client;
     cache.uri = uri;
+    cache.databaseName = databaseName;
     cache.client = null;
     cache.promise = null;
     cache.dbPromise = null;
@@ -39,17 +39,9 @@ export async function getMongoDb(): Promise<SchoolDb> {
     cache.promise = connection;
   }
   const client = await cache.promise;
-  if (cache.uri !== uri) return getMongoDb();
+  if (cache.uri !== uri || cache.databaseName !== databaseName) return getMongoDb();
   if (!cache.dbPromise) {
-    const databasePromise = (async () => {
-      const db = client.db(databaseName);
-      await ensureMongoSchema(db);
-      return db;
-    })().catch(error => {
-      if (cache.uri === uri && cache.dbPromise === databasePromise) cache.dbPromise = null;
-      throw error;
-    });
-    cache.dbPromise = databasePromise;
+    cache.dbPromise = Promise.resolve(client.db(databaseName) as SchoolDb);
   }
   return cache.dbPromise;
 }

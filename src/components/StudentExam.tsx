@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, W
 import { formatDisplayText } from "@/lib/format-display";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
-type ExamState = { attempt: { id: string; expiresAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
+type ExamState = { restarted?: boolean; attempt: { id: string; expiresAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
 type Submission = { marks: number; maxMarks: number; percentage: number; correctCount: number; incorrectCount: number; unansweredCount: number; submittedAt: string; answerReview: { questionId: string; selectedOptionId: string | null; correctOptionId: string | null; isCorrect: boolean; marks: number }[] };
 
 export function StudentExam() {
@@ -39,7 +39,12 @@ export function StudentExam() {
       }
       if (active) {
         const restoredExam = payload as ExamState;
-        const savedIndex = Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
+        if (restoredExam.restarted) {
+          Object.keys(sessionStorage)
+            .filter(key => key === `mongo-exam-index:${restoredExam.attempt.id}` || key.startsWith(`mongo-exam-deadline:${restoredExam.attempt.id}:`))
+            .forEach(key => sessionStorage.removeItem(key));
+        }
+        const savedIndex = restoredExam.restarted ? 0 : Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
         setQuestionIndex(Math.min(Math.max(0, savedIndex), restoredExam.questions.length - 1));
         setWarningCount(Number(restoredExam.attempt.warningCount || 0));
         setExam(restoredExam);

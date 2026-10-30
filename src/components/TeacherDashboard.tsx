@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -193,13 +193,16 @@ export function TeacherDashboard() {
     }
   }, []);
 
-  // Initialize
+  // Load each tab's data only when the user opens that tab.
+  const loadedTabs = useRef(new Set<TeacherTab>());
   useEffect(() => {
-    void loadResults();
-    void loadPapers();
-    void loadSessions();
-    void loadStudents();
-  }, [loadResults, loadPapers, loadSessions, loadStudents]);
+    if (loadedTabs.current.has(tab)) return;
+    loadedTabs.current.add(tab);
+    if (tab === "results") void loadResults();
+    if (tab === "papers") void loadPapers();
+    if (tab === "sessions") void loadSessions();
+    if (tab === "students") void loadStudents();
+  }, [tab, loadResults, loadPapers, loadSessions, loadStudents]);
 
   // Periodic refresh for live sessions
   useEffect(() => {
