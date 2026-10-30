@@ -150,3 +150,12 @@
 .rank-badge-3{background:#fbf0e6;color:#a25d21;border:1px solid #eec4a0}
 .rank-badge-other{background:#f7f9fc;color:#7c8ca5}
 @media(max-width:900px){.admin-shell{flex-direction:column}.admin-sidebar{width:100%;height:auto;position:relative}.admin-main{padding:20px 16px}}
+
+.exam-entry-card .payment-instructions{margin-bottom:8px}
+.payment-upi-instructions{margin:0 auto 12px;text-align:center;font-size:11px;line-height:1.5;color:#64748b}
+.exam-payment-upi{margin:12px 0 18px}
+.exam-payment-upi .payment-action{display:flex;justify-content:center}
+.exam-payment-upi .payment-action .button{width:100%;max-width:380px;min-height:54px;border-radius:10px;font-size:15px;font-weight:700;box-shadow:0 7px 16px #2860ec30}
+.exam-entry-card .lookup-footer{display:flex;justify-content:center;align-items:center}
+.exam-entry-card .lookup-footer span{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:#475569}
+.exam-entry-card .lookup-footer span svg{flex:none;color:#2860ec}
