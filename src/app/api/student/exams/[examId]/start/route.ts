@@ -32,7 +32,12 @@ export async function POST(request: NextRequest, context: Context) {
     if (exam.starts_at && now < new Date(exam.starts_at)) return NextResponse.json({ error: "This exam has not started yet." }, { status: 409 });
     if (exam.ends_at && now > new Date(exam.ends_at)) return NextResponse.json({ error: "This exam schedule has ended." }, { status: 409 });
     let attempt = await db.collection("examAttempts").findOne({ exam_id: examId, student_id: studentId });
-    if (attempt && attempt.status !== "in_progress") return NextResponse.json({ error: "This examination has already been submitted." }, { status: 409 });
+    if (attempt && attempt.status !== "in_progress") {
+      const message = attempt.status === "locked"
+        ? "This attempt was locked after repeated departures from the examination screen. Contact your teacher."
+        : "This examination has already been submitted.";
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
     if (!attempt) {
       const attemptId = `attempt:${randomUUID()}`;
       const durationSeconds = Number(exam.duration_seconds || 2700);
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest, context: Context) {
         selectedOptionId: answer?.option_id ? String(answer.option_id) : null,
       };
     });
-    return NextResponse.json({ attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString() }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString(), warningCount: Number(attempt.warning_count ?? 0) }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Atlas exam start failed:", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json({ error: "Could not start this exam. Please try again shortly." }, { status: 503 });

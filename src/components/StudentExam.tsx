@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap } from "lucide-react";
+import { formatDisplayText } from "@/lib/format-display";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
-type ExamState = { attempt: { id: string; expiresAt: string }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
+type ExamState = { attempt: { id: string; expiresAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
 type Submission = { marks: number; maxMarks: number; percentage: number; correctCount: number; incorrectCount: number; unansweredCount: number; submittedAt: string; answerReview: { questionId: string; selectedOptionId: string | null; correctOptionId: string | null; isCorrect: boolean; marks: number }[] };
 
 export function StudentExam() {
@@ -18,8 +19,11 @@ export function StudentExam() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Submission | null>(null);
+  const [warningCount, setWarningCount] = useState(0);
+  const [focusWarningCount, setFocusWarningCount] = useState<number | null>(null);
   const deadline = useRef(0);
   const advancing = useRef(false);
+  const attemptId = exam?.attempt.id;
   const perQuestion = exam?.questions.length ? Math.max(1, Math.floor(exam.exam.durationSeconds / exam.questions.length)) : 45;
   const currentQuestion = exam?.questions[questionIndex];
 
@@ -37,11 +41,62 @@ export function StudentExam() {
         const restoredExam = payload as ExamState;
         const savedIndex = Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
         setQuestionIndex(Math.min(Math.max(0, savedIndex), restoredExam.questions.length - 1));
+        setWarningCount(Number(restoredExam.attempt.warningCount || 0));
         setExam(restoredExam);
       }
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not start the exam."); });
     return () => { active = false; };
   }, [examId, router]);
+
+  useEffect(() => {
+    if (!attemptId || result) return;
+    let active = true;
+    let recording = false;
+    let lastRecordedAt = 0;
+    const recordDeparture = async (event: "visibility_hidden" | "window_blur") => {
+      const now = Date.now();
+      if (recording || now - lastRecordedAt < 1800) return;
+      recording = true;
+      lastRecordedAt = now;
+      try {
+        const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/warnings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ attemptId, event }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Could not record this screen change.");
+        if (!active) return;
+        const recordedCount = Number(payload.warningCount || 0);
+        setWarningCount(recordedCount);
+        if (payload.shouldLogout) {
+          setExam(null);
+          setFocusWarningCount(null);
+          Object.keys(sessionStorage)
+            .filter(key => key.startsWith(`mongo-exam-deadline:${attemptId}:`))
+            .forEach(key => sessionStorage.removeItem(key));
+          sessionStorage.removeItem(`mongo-exam-index:${attemptId}`);
+          await fetch("/api/student/session", { method: "DELETE" }).catch(() => undefined);
+          router.replace("/student");
+          return;
+        }
+        if (!payload.duplicate) setFocusWarningCount(recordedCount);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "Could not record this screen change.");
+      } finally {
+        recording = false;
+      }
+    };
+    const onVisibility = () => { if (document.visibilityState === "hidden") void recordDeparture("visibility_hidden"); };
+    const onBlur = () => { void recordDeparture("window_blur"); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [attemptId, examId, result, router]);
 
   useEffect(() => {
     if (!exam || result) return;
@@ -103,5 +158,38 @@ export function StudentExam() {
 
   if (result && exam) return <main className="public-result-page"><section className="result-lookup-card mongo-exam-result"><header className="demo-marksheet-toolbar"><div><span className="demo-marksheet-kicker">GLORIOUS HIGH-TECH SCHOOL</span><h2>Exam submitted</h2><p>{exam.exam.title}</p></div><div className="demo-marksheet-actions"><button className="button button-primary" onClick={() => window.print()}><Download size={15}/>Download / Print</button><button className="button button-secondary" onClick={() => router.replace("/student/results")}>View all results</button></div></header><div className="demo-score-summary"><div><span>Score</span><b>{result.marks} <small>/ {result.maxMarks}</small></b></div><div><span>Percentage</span><b>{result.percentage.toFixed(1)}%</b></div><div><span>Correct</span><b>{result.correctCount} <small>/ {exam.questions.length}</small></b></div></div><h3 className="demo-answer-sheet-title">Question paper and selected answers</h3><div className="demo-answer-sheet">{exam.questions.map((question, index) => { const review = result.answerReview.find(item => item.questionId === question.id); return <article className="demo-answer-question" key={question.id}><div className="demo-answer-question-head"><b>Question {index + 1}</b><span>{review?.marks ?? 0} / {question.marks} marks</span></div><p>{question.body}</p><ol>{question.options.map(option => <li className={`${review?.selectedOptionId === option.id ? "chosen" : ""} ${review?.correctOptionId === option.id ? "correct-answer" : ""}`} key={option.id}><span>{review?.correctOptionId === option.id ? "✓" : option.label}</span>{option.body}{review?.selectedOptionId === option.id && <small> Your answer</small>}</li>)}</ol></article>; })}</div></section></main>;
 
-  return <main className="public-result-page"><section className="result-lookup-card mongo-exam-shell"><button className="exam-back-button" onClick={() => router.push("/student/exams")}><ArrowLeft size={13}/> Exit exam</button>{error && <div className="notice warning" role="alert">{error}</div>}{!exam ? <div role="status"><h2>Opening exam…</h2></div> : currentQuestion && <><div className="mongo-exam-toolbar"><div><span>{exam.exam.title}</span><div className="demo-progress"><span className="demo-progress-count">QUESTION {questionIndex + 1} / {exam.questions.length}</span><span className={`demo-progress-clock ${secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={13}/>{String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:{String(secondsLeft % 60).padStart(2, "0")}</span><span className="demo-progress-rate">{perQuestion} sec per question</span></div></div><span className="mongo-save-status">{saving ? "Saving…" : "Answers save automatically"}</span></div><article className="demo-paper-question mongo-exam-question"><b>Q{questionIndex + 1}. {currentQuestion.body}</b><div className="demo-options">{currentQuestion.options.map(option => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{option.label}</span>{option.body}</button>)}</div><div className="demo-question-actions"><small>{currentQuestion.selectedOptionId ? "Answer saved. Continue when ready." : "Select an option. The next question opens when the timer ends."}</small><button className="button button-primary" type="button" disabled={saving || (!currentQuestion.selectedOptionId && secondsLeft > 0) || submitting} onClick={() => void next()}>{submitting ? "Submitting…" : questionIndex === exam.questions.length - 1 ? "Submit exam" : "Next question"}<ArrowRight size={14}/></button></div></article><p className="card-footnote"><GraduationCap size={14}/> Refreshing will restore this attempt and saved answers.</p></>}</section></main>;
+  return (
+    <main className="public-result-page">
+      <section className="result-lookup-card mongo-exam-shell">
+        <button className="exam-back-button" onClick={() => router.push("/student/exams")}><ArrowLeft size={13}/> Exit exam</button>
+        {error && <div className="notice warning" role="alert">{error}</div>}
+        {!exam ? <div role="status"><h2>Opening exam…</h2></div> : currentQuestion && <>
+          <div className="mongo-exam-toolbar">
+            <div className="mongo-exam-toolbar-main">
+              <span className="mongo-exam-title">{formatDisplayText(exam.exam.title)}</span>
+              <div className="demo-progress">
+                <span className="demo-progress-count">QUESTION {questionIndex + 1} / {exam.questions.length}</span>
+                <span className={`demo-progress-clock ${secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={15}/>{String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:{String(secondsLeft % 60).padStart(2, "0")}</span>
+                <span className="demo-progress-rate">{perQuestion} sec per question</span>
+              </div>
+            </div>
+            <div className="mongo-exam-toolbar-status">
+              <span className="mongo-warning-status">Screen changes: {warningCount}/3</span>
+              <span className="mongo-save-status">{saving ? "Saving…" : "Answers save automatically"}</span>
+            </div>
+          </div>
+          <article className="demo-paper-question mongo-exam-question">
+            <b>Q{questionIndex + 1}. {currentQuestion.body}</b>
+            <div className="demo-options">{currentQuestion.options.map(option => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{option.label}</span>{option.body}</button>)}</div>
+            <div className="demo-question-actions">
+              <small>{currentQuestion.selectedOptionId ? "Answer saved. Continue when ready." : "Select an option. The next question opens when the timer ends."}</small>
+              <button className="button button-primary" type="button" disabled={saving || (!currentQuestion.selectedOptionId && secondsLeft > 0) || submitting} onClick={() => void next()}>{submitting ? "Submitting…" : questionIndex === exam.questions.length - 1 ? "Submit exam" : "Next question"}<ArrowRight size={14}/></button>
+            </div>
+          </article>
+          <p className="card-footnote mongo-exam-footnote"><GraduationCap size={15}/><span>Refreshing will restore this attempt and saved answers.</span></p>
+          {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. Your questions are paused. {focusWarningCount === 3 ? "This is your final warning. Leaving the screen again will lock this attempt and sign you out." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining.`}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam</button></div></section></div>}
+        </>}
+      </section>
+    </main>
+  );
 }
