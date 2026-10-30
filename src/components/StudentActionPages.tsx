@@ -99,17 +99,16 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                 return (
                   <article className="student-record-card student-result-record-card" key={`${result.examId}-${index}`}>
                     <h3>{classLabel}, {result.subject} — {formatDisplayText(result.chapter || result.title)}</h3>
-                    <div className="student-result-identity">
-                      <div><span>Student name</span><b>{payload.student.fullName}</b></div>
-                      <div><span>Roll No.</span><b>{payload.student.rollNumber}</b></div>
-                    </div>
-                    <div className="student-result-dates">
-                      <span><CalendarDays size={13} /> Exam: {dateLabel(result.examDate)}</span>
-                      {result.submittedAt && <span>Submitted: {dateLabel(result.submittedAt)}</span>}
-                    </div>
-                    <table className="student-result-marks-table">
-                      <thead><tr><th>Total marks</th><th>Obtained marks</th><th>Percentage</th></tr></thead>
-                      <tbody><tr><td>{result.maxMarks}</td><td>{result.marks}</td><td>{Number(result.percentage).toFixed(1)}%</td></tr></tbody>
+                    <table className="student-result-record-table" aria-label="Student exam result record">
+                      <tbody>
+                        <tr><th scope="row">Student name</th><td>{payload.student.fullName}</td></tr>
+                        <tr><th scope="row">Roll No.</th><td>{payload.student.rollNumber}</td></tr>
+                        <tr><th scope="row">Exam date</th><td>{dateLabel(result.examDate)}</td></tr>
+                        {result.submittedAt && <tr><th scope="row">Submitted</th><td>{dateLabel(result.submittedAt)}</td></tr>}
+                        <tr><th scope="row">Total marks</th><td>{result.maxMarks}</td></tr>
+                        <tr><th scope="row">Obtained marks</th><td>{result.marks}</td></tr>
+                        <tr><th scope="row">Percentage</th><td>{Number(result.percentage).toFixed(1)}%</td></tr>
+                      </tbody>
                     </table>
                   </article>
                 );
