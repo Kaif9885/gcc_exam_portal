@@ -19,7 +19,6 @@ export function StudentExam() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Submission | null>(null);
-  const [warningCount, setWarningCount] = useState(0);
   const [focusWarningCount, setFocusWarningCount] = useState<number | null>(null);
   const deadline = useRef(0);
   const advancing = useRef(false);
@@ -46,7 +45,6 @@ export function StudentExam() {
         }
         const savedIndex = restoredExam.restarted ? 0 : Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
         setQuestionIndex(Math.min(Math.max(0, savedIndex), restoredExam.questions.length - 1));
-        setWarningCount(Number(restoredExam.attempt.warningCount || 0));
         setExam(restoredExam);
       }
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not start the exam."); });
@@ -73,7 +71,6 @@ export function StudentExam() {
         if (!response.ok) throw new Error(payload.error || "Could not record this screen change.");
         if (!active) return;
         const recordedCount = Number(payload.warningCount || 0);
-        setWarningCount(recordedCount);
         if (payload.shouldLogout) {
           setExam(null);
           setFocusWarningCount(null);
@@ -112,7 +109,7 @@ export function StudentExam() {
   }, [exam?.attempt.id, exam?.attempt.expiresAt, exam?.questions.length, exam?.exam.durationSeconds, questionIndex, perQuestion, result]);
 
   const finish = useCallback(async () => {
-    if (!exam || submitting || result) return;
+    if (!exam || saving || submitting || result) return;
     setSubmitting(true); setError("");
     try {
       const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/submit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attemptId: exam.attempt.id }) });
@@ -123,7 +120,7 @@ export function StudentExam() {
       sessionStorage.removeItem(`mongo-exam-index:${exam.attempt.id}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not submit exam."); }
     finally { setSubmitting(false); }
-  }, [exam, examId, result, submitting]);
+  }, [exam, examId, result, saving, submitting]);
 
   useEffect(() => {
     if (!exam || result) return;
@@ -132,18 +129,18 @@ export function StudentExam() {
   }, [exam, result, finish]);
 
   const next = useCallback(async () => {
-    if (!exam || advancing.current || result) return;
+    if (!exam || advancing.current || saving || result) return;
     advancing.current = true;
     try {
       if (questionIndex >= exam.questions.length - 1) await finish();
       else setQuestionIndex(index => { const nextIndex = index + 1; sessionStorage.setItem(`mongo-exam-index:${exam.attempt.id}`, String(nextIndex)); return nextIndex; });
     } finally { advancing.current = false; }
-  }, [exam, finish, questionIndex, result]);
+  }, [exam, finish, questionIndex, result, saving]);
 
   useEffect(() => {
-    if (secondsLeft !== 0 || !exam || result || submitting) return;
+    if (secondsLeft !== 0 || !exam || result || saving || submitting) return;
     void next();
-  }, [secondsLeft, exam, result, submitting, next]);
+  }, [secondsLeft, exam, result, saving, submitting, next]);
 
   async function selectOption(optionId: string) {
     if (!exam || !currentQuestion || saving) return;
@@ -174,9 +171,6 @@ export function StudentExam() {
                 <span className="demo-progress-rate">{perQuestion} sec per question</span>
               </div>
             </div>
-            <div className="mongo-exam-toolbar-status">
-              <span className="mongo-warning-status">Screen changes: {Math.min(warningCount, 3)}/3</span>
-            </div>
           </div>
           <div className="mongo-save-notice"><Wifi size={15} aria-hidden="true"/><span>{saving ? "Saving answers…" : "Answers save automatically"}</span></div>
           <article className="demo-paper-question mongo-exam-question">
@@ -188,7 +182,7 @@ export function StudentExam() {
             </div>
           </article>
           <p className="card-footnote mongo-exam-footnote"><GraduationCap size={15}/><span>Refreshing will restore this attempt and saved answers.</span></p>
-          {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. Your questions are paused. {focusWarningCount === 3 ? "This is your final warning. Leaving again will sign you out; you can log back in to resume your exam." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining.`}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam</button></div></section></div>}
+          {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam / परीक्षा में वापस जाएँ</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. {focusWarningCount === 3 ? "This is your final warning. Leaving again will sign you out. After logging in again, you must restart the exam from question 1." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining.`}</p><p lang="hi">चेतावनी {focusWarningCount}/3: आपने परीक्षा स्क्रीन छोड़ दी है। {focusWarningCount === 3 ? "यह आखिरी चेतावनी है। दोबारा स्क्रीन छोड़ने पर आप लॉग आउट हो जाएंगे। फिर लॉग इन करने पर परीक्षा प्रश्न 1 से शुरू करनी होगी।" : focusWarningCount === 2 ? "1 चेतावनी बाकी है।" : "2 चेतावनियाँ बाकी हैं।"}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam / परीक्षा जारी रखें</button></div></section></div>}
         </>}
       </section>
     </main>
