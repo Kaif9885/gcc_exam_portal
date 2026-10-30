@@ -91,7 +91,7 @@ export async function POST(request: NextRequest, context: Context) {
         selectedOptionId: answer?.option_id ? String(answer.option_id) : null,
       };
     });
-    return NextResponse.json({ restarted, attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString(), warningCount: Number(attempt.warning_count ?? 0) }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ restarted, student: { fullName: session.fullName, rollNumber: session.rollNumber }, attempt: { id: String(attempt.id ?? attempt._id), expiresAt: new Date(attempt.expires_at).toISOString(), startedAt: new Date(attempt.started_at).toISOString(), warningCount: Number(attempt.warning_count ?? 0) }, exam: { id: examId, title: exam.title, durationSeconds: exam.duration_seconds, subject: exam.subject }, questions: paper }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Atlas exam start failed:", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json({ error: "Could not start this exam. Please try again shortly." }, { status: 503 });

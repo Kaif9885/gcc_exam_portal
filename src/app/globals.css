@@ -162,3 +162,13 @@
 .exam-entry-card .lookup-footer{display:flex;justify-content:center;align-items:center}
 .exam-entry-card .lookup-footer span{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:#475569}
 .exam-entry-card .lookup-footer span svg{flex:none;color:#2860ec}
+.public-result-page .mongo-exam-result{width:min(100%,920px);max-width:920px!important;box-sizing:border-box;min-width:0}
+.mongo-result-student{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;color:#687891;font-size:10px}
+.mongo-result-student>span{display:grid;gap:3px}
+.mongo-result-student b{color:#263c60;font-size:12px;overflow-wrap:anywhere}
+.mongo-exam-result .demo-answer-sheet{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0}
+.mongo-exam-result .demo-answer-question{min-width:0;overflow-wrap:anywhere}
+.mongo-exam-result .demo-answer-question ol{grid-template-columns:repeat(2,minmax(0,1fr));min-width:0}
+.mongo-exam-result .demo-answer-question li{min-width:0;overflow-wrap:anywhere}
+@media(max-width:700px){.public-result-page .mongo-exam-result{width:100%}.mongo-exam-result .demo-answer-sheet{grid-template-columns:minmax(0,1fr)}}
+@media print{body:has(.mongo-exam-result) *{visibility:hidden!important}body:has(.mongo-exam-result) .mongo-exam-result,body:has(.mongo-exam-result) .mongo-exam-result *{visibility:visible!important}body:has(.mongo-exam-result) .public-result-page{display:block!important;min-height:0!important;padding:0!important;background:#fff!important}body:has(.mongo-exam-result) .mongo-exam-result{position:absolute;inset:0 auto auto 0;width:100%!important;max-width:none!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}body:has(.mongo-exam-result) .demo-marksheet-actions{display:none!important}.mongo-exam-result .demo-answer-sheet{grid-template-columns:repeat(2,minmax(0,1fr))}.mongo-exam-result .demo-answer-question{break-inside:avoid}}
