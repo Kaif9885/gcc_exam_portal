@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { formatDisplayText } from "@/lib/format-display";
 
 type Payment = { id: string; student_name: string; roll_number: string; board: string; group_name: string; subject: string; chapter_name: string; amount_inr: number; transaction_reference: string; payer_upi_id: string; payer_name: string; paid_at: string; status: "pending"|"verified"|"rejected"; created_at: string };
 
@@ -41,7 +42,7 @@ export function ExamPaymentReviewPanel() {
     {loadError&&<div className="notice warning admission-notice">{loadError}</div>}
     {message&&<div className="notice success admission-notice" role="status">{message}</div>}
     {rows.filter(row=>row.status==="pending").length===0?<div className="empty-exams"><Clock3 size={17}/><span>No pending exam payment submissions.</span></div>:rows.filter(row=>row.status==="pending").map(row=><article className="payment-review-row" key={row.id}>
-      <div className="payment-review-data"><span className="result-status pending">Pending · ₹{row.amount_inr}</span><h4>{row.student_name} <small>Roll {row.roll_number} · {row.group_name} · {row.board}</small></h4><p>{row.subject} · {row.chapter_name}</p><dl><div><dt>PhonePe name</dt><dd>{row.payer_name}</dd></div><div><dt>Paid at</dt><dd>{new Date(row.paid_at).toLocaleString()}</dd></div></dl></div>
+      <div className="payment-review-data"><span className="result-status pending">Pending · ₹{row.amount_inr}</span><h4>{row.student_name} <small>Roll {row.roll_number} · {row.group_name} · {row.board}</small></h4><p>{row.subject} · {formatDisplayText(row.chapter_name)}</p><dl><div><dt>PhonePe name</dt><dd>{row.payer_name}</dd></div><div><dt>Paid at</dt><dd>{new Date(row.paid_at).toLocaleString()}</dd></div></dl></div>
   <div className="admission-actions"><button className="button button-secondary" disabled={busyId===row.id} onClick={()=>void review(row,false)}><XCircle size={13}/> Reject</button><button className="button button-primary" disabled={busyId===row.id} onClick={()=>void review(row,true)}><CheckCircle2 size={13}/> Verify payment</button></div>
     </article>)}
   </section>;

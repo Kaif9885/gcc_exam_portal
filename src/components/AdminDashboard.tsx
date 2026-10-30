@@ -21,6 +21,7 @@ import {
 import { PaperBuilder } from "@/components/PaperBuilder";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
+import { formatDisplayText } from "@/lib/format-display";
 
 type AdminTab = "results" | "payments" | "papers" | "sessions" | "students";
 
@@ -591,8 +592,8 @@ export function AdminDashboard() {
                             <span style={{ fontWeight: 600, color: "#374b6c" }}>{item.className}</span>
                           </td>
                           <td>
-                            <b>{item.examTitle}</b>
-                            <small>{item.subject} · {item.chapterName}</small>
+                            <b>{formatDisplayText(item.examTitle)}</b>
+                            <small>{item.subject} · {formatDisplayText(item.chapterName)}</small>
                           </td>
                           <td>
                             <b>{item.marksObtained} / {item.maxMarks}</b>
@@ -638,14 +639,14 @@ export function AdminDashboard() {
                     <div>
                       <b>{p.title}</b>
                       <small>
-                        {p.groups.map(g => g.name).join(", ")} · {p.subject} · {p.chapterName}
+                        {p.groups.map(g => g.name).join(", ")} · {p.subject} · {formatDisplayText(p.chapterName)}
                       </small>
                     </div>
                     <TeacherAnswerKeyDownload
                       examId={p.id}
                       title={p.title}
                       subject={p.subject}
-                      chapter={p.chapterName}
+                      chapter={formatDisplayText(p.chapterName)}
                       className={p.groups.map(g => g.name).join(", ")}
                     />
                   </article>
@@ -749,7 +750,7 @@ export function AdminDashboard() {
                           </td>
                           <td>
                             <b>{p.subject}</b>
-                            <small>{p.chapterName}</small>
+                            <small>{formatDisplayText(p.chapterName)}</small>
                           </td>
                           <td>
                             <b style={{ color: "#1e3a8a" }}>{p.payerName}</b>
@@ -868,8 +869,8 @@ export function AdminDashboard() {
                         <span className={`result-status ${paper.published ? "passed" : "failed"}`}>
                           {paper.published ? "Published" : "Draft"}
                         </span>
-                        <h4>{paper.title}</h4>
-                        <p>{paper.subject} · {paper.chapterName}</p>
+                        <h4>{formatDisplayText(paper.title)}</h4>
+                        <p>{paper.subject} · {formatDisplayText(paper.chapterName)}</p>
                         <small>
                           Classes: {paper.groups.map(g => g.name).join(" + ") || "All"} · {paper.maxMarks} marks ·{" "}
                           {paper.questionCount} questions · {Math.round(paper.durationSeconds / 60)} minutes
@@ -961,7 +962,7 @@ export function AdminDashboard() {
                             <span>{s.className}</span>
                           </td>
                           <td>
-                            <b>{s.examTitle}</b>
+                            <b>{formatDisplayText(s.examTitle)}</b>
                             <small>{s.subject}</small>
                           </td>
                           <td>

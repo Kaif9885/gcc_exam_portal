@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BookOpenCheck, CalendarDays, ClipboardList, LockKeyhole } from "lucide-react";
+import { formatDisplayText } from "@/lib/format-display";
 
 type Exam = { id: string; title: string; subject: string; chapter: string; durationSeconds: number; status: string; startsAt: string | null; endsAt: string | null };
 type StudentResult = { examId: string; title: string; subject: string; chapter: string; examDate: string | null; submittedAt: string | null; marks: number; maxMarks: number; percentage: number };
@@ -97,8 +98,8 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                 <article className="student-record-card" key={`${result.examId}-${index}`}>
                   <div className="student-record-icon"><ClipboardList size={19} /></div>
                   <div className="student-record-main">
-                    <h3>{result.title}</h3>
-                    <p>{result.subject} · {result.chapter}</p>
+                    <h3>{formatDisplayText(result.title)}</h3>
+                    <p>{result.subject} · {formatDisplayText(result.chapter)}</p>
                     <span>
                       <CalendarDays size={13} /> Exam: {dateLabel(result.examDate)}
                       {result.submittedAt ? ` · Submitted: ${dateLabel(result.submittedAt)}` : ""}
@@ -129,8 +130,8 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                   <article className="student-record-card" key={exam.id}>
                     <div className="student-record-icon"><BookOpenCheck size={19} /></div>
                     <div className="student-record-main">
-                      <h3>{exam.title}</h3>
-                      <p>{exam.subject} · {exam.chapter}</p>
+                      <h3>{formatDisplayText(exam.title)}</h3>
+                      <p>{exam.subject} · {formatDisplayText(exam.chapter)}</p>
                       <span>
                         <CalendarDays size={13} /> {exam.startsAt ? `Starts ${dateLabel(exam.startsAt)}` : "Schedule: open"} · {Math.round(exam.durationSeconds / 60)} minutes
                       </span>

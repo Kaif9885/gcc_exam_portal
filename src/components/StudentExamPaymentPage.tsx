@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { UPIButton } from '@/components/payment/UPIButton';
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
+import { formatDisplayText } from "@/lib/format-display";
 
 type PaymentPayload = {
   student: { fullName: string; rollNumber: string; board: string; className: string };
@@ -107,7 +108,7 @@ export function StudentExamPaymentPage() {
         ) : data && (
           <>
             <h2>Pay ₹20 to continue</h2>
-            <p className="payment-instructions">{data.exam.title}</p>
+            <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
             <p className="payment-upi-instructions">Click the button below and complete the ₹20 payment in your UPI app.</p>
             <div className="exam-payment-upi">
               <UPIButton

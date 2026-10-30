@@ -5,6 +5,7 @@ import Image from "next/image";
 import { UPIButton } from '@/components/payment/UPIButton';
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, LockKeyhole, Smartphone } from "lucide-react";
+import { formatDisplayText } from "@/lib/format-display";
 
 const boards = ["BSEB", "CBSE"];
 const classes = [
@@ -268,7 +269,7 @@ export function StudentExamGate({ onSignIn, onTeacherLogin }: Props) {
           <label htmlFor="entry-subject">Subject</label>
           <select id="entry-subject" value={subject} onChange={event=>{setSubject(event.target.value);setChapter("")}} required disabled={!availableSubjects.length}><option value="" disabled>Select subject</option>{availableSubjects.map(item=><option key={item}>{item}</option>)}</select>
           <label htmlFor="entry-chapter">Chapter name</label>
-          <select id="entry-chapter" value={chapter} onChange={event=>setChapter(event.target.value)} required disabled={!subject || !availableChapters.length}><option value="" disabled>Select chapter</option>{availableChapters.map(item=><option key={item}>{item}</option>)}</select>
+          <select id="entry-chapter" value={chapter} onChange={event=>setChapter(event.target.value)} required disabled={!subject || !availableChapters.length}><option value="" disabled>Select chapter</option>{availableChapters.map(item=><option key={item} value={item}>{formatDisplayText(item)}</option>)}</select>
           <button className="button button-primary lookup-submit" type="submit"><span>Continue to ₹20 payment</span><ArrowRight size={15}/></button>
         </form>
         <div className="exam-teacher-shortcut"><span>School staff?</span><button type="button" onClick={onTeacherLogin}>Teacher Login</button></div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, GraduationCap, LockKeyhole } from "lucide-react";
+import { formatDisplayText } from "@/lib/format-display";
 
 const teacherNames = ["Waseem Akram", "Md Naseem", "Md Meraj", "Tabrej Alam", "Md Arif", "Md Reyaj", "Nisha Kumari", "Nargis Bano", "Er. Faiz"];
 const classes = [
@@ -56,7 +57,7 @@ export function TeacherLoginGate({ onBack, onSubmit }: Props) {
         {(mode === "questions" || mode === "results") && <>
           <label htmlFor="teacher-class">Class</label><select id="teacher-class" value={groupSlug} onChange={event => { setGroupSlug(event.target.value); setSubject(""); setChapter(""); }} required><option value="" disabled>Select class</option>{classes.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           <label htmlFor="teacher-subject">Subject</label><select id="teacher-subject" value={subject} onChange={event => { setSubject(event.target.value); setChapter(""); }} disabled={!availableSubjects.length} required><option value="" disabled>Select subject</option>{availableSubjects.map(item => <option key={item}>{item}</option>)}</select>
-          <label htmlFor="teacher-chapter">Chapter name</label><select id="teacher-chapter" value={chapter} onChange={event => setChapter(event.target.value)} disabled={!subject || !availableChapters.length} required><option value="" disabled>Select chapter</option>{availableChapters.map(item => <option key={item}>{item}</option>)}</select>
+          <label htmlFor="teacher-chapter">Chapter name</label><select id="teacher-chapter" value={chapter} onChange={event => setChapter(event.target.value)} disabled={!subject || !availableChapters.length} required><option value="" disabled>Select chapter</option>{availableChapters.map(item => <option key={item} value={item}>{formatDisplayText(item)}</option>)}</select>
         </>}
         <button className="button button-primary lookup-submit" type="submit" disabled={busy}>{busy ? "Verifying teacher access…" : mode === "questions" ? "Open question paper" : mode === "monitor" ? "Open active sessions" : "Open class results & Top 3"}<ArrowRight size={15}/></button>
       </>}
