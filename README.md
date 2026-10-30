@@ -18,7 +18,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 3. Start the app and open `/api/health/mongodb`. A successful response confirms Atlas connectivity and creates the collections/indexes without deleting data.
 4. To import existing records once, either temporarily add the source `NEXT_PUBLIC_SUPABASE_URL` and server-only `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`, or export each table as a JSON array into the ignored `supabase-export/` folder. Run `npm run db:import-supabase`. The import is idempotent and does not delete source records; compare source and destination counts before cutover. Supabase Auth passwords are not imported.
 5. Keep the Supabase variables until all application routes are migrated to MongoDB. Remove them only after the runtime cutover is complete.
-6. Optionally set `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` and `NEXT_PUBLIC_PAYMENT_UPI_ID` to the school's verified QR/payee. PhonePe is not automatically verified by the app.
+6. Optionally set `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` and server-side `PAYMENT_UPI_ID` to the school's verified QR/payee. The UPI ID is returned to the payment page at runtime so the browser can open a UPI app; it is visible to payment page users. PhonePe is not automatically verified by the app.
 7. Set server-only `TEACHER_LOGIN_PASSWORD=786` and a unique random `TEACHER_SESSION_SECRET` in `.env.local`.
 8. Run `npm run dev`, then visit the local URL shown by Next.js.
 
@@ -33,7 +33,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 | `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` | Browser | Optional school-owned QR image shown in student registration |
 | `MONGODB_URI` | Server only | MongoDB Atlas connection string; keep it private |
 | `MONGODB_DB` | Server only | Database name (defaults to the URI's database if omitted) |
-| `NEXT_PUBLIC_PAYMENT_UPI_ID` | Browser | Optional school payment account shown with the QR |
+| `PAYMENT_UPI_ID` | Server (returned to payment page) | Optional school UPI payee address used to open the UPI app; visible to payment page users |
 | `TEACHER_LOGIN_PASSWORD` | Server only | Shared password used by the approved teachers |
 | `TEACHER_SESSION_SECRET` | Server only | Random secret used to sign the teacher login cookie |
 

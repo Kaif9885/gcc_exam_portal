@@ -20,7 +20,17 @@ export function StudentExamPaymentPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [paymentUpiId, setPaymentUpiId] = useState("");
   const qr = process.env.NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL || "/payments/phonepe-payment-qr.jpg";
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/payment-config", { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(config => { if (active && config) setPaymentUpiId(typeof config.upiId === "string" ? config.upiId : ""); })
+      .catch(() => { if (active) setPaymentUpiId(""); });
+    return () => { active = false; };
+  }, []);
 
   const load = useCallback(async (token?: string) => {
     const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/payment${token ? `?token=${encodeURIComponent(token)}` : ""}`, { cache: "no-store" });
@@ -102,7 +112,7 @@ export function StudentExamPaymentPage() {
             </p>
             <div className="exam-payment-upi">
               <UPIButton
-                vpa={process.env.NEXT_PUBLIC_PAYMENT_UPI_ID || ""}
+                vpa={paymentUpiId}
                 name="School Payments"
                 amount={20}
                 className="payment-action"
