@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
@@ -72,10 +72,6 @@ export function StudentExam() {
         if (payload.shouldLogout) {
           setExam(null);
           setFocusWarningCount(null);
-          Object.keys(sessionStorage)
-            .filter(key => key.startsWith(`mongo-exam-deadline:${attemptId}:`))
-            .forEach(key => sessionStorage.removeItem(key));
-          sessionStorage.removeItem(`mongo-exam-index:${attemptId}`);
           await fetch("/api/student/session", { method: "DELETE" }).catch(() => undefined);
           router.replace("/student");
           return;
@@ -174,10 +170,10 @@ export function StudentExam() {
               </div>
             </div>
             <div className="mongo-exam-toolbar-status">
-              <span className="mongo-warning-status">Screen changes: {warningCount}/3</span>
-              <span className="mongo-save-status">{saving ? "Saving…" : "Answers save automatically"}</span>
+              <span className="mongo-warning-status">Screen changes: {Math.min(warningCount, 3)}/3</span>
             </div>
           </div>
+          <div className="mongo-save-notice"><Wifi size={15} aria-hidden="true"/><span>{saving ? "Saving answers…" : "Answers save automatically"}</span></div>
           <article className="demo-paper-question mongo-exam-question">
             <b>Q{questionIndex + 1}. {currentQuestion.body}</b>
             <div className="demo-options">{currentQuestion.options.map(option => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{option.label}</span>{option.body}</button>)}</div>
@@ -187,7 +183,7 @@ export function StudentExam() {
             </div>
           </article>
           <p className="card-footnote mongo-exam-footnote"><GraduationCap size={15}/><span>Refreshing will restore this attempt and saved answers.</span></p>
-          {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. Your questions are paused. {focusWarningCount === 3 ? "This is your final warning. Leaving the screen again will lock this attempt and sign you out." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining.`}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam</button></div></section></div>}
+          {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. Your questions are paused. {focusWarningCount === 3 ? "This is your final warning. Leaving again will sign you out; you can log back in to resume your exam." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining.`}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam</button></div></section></div>}
         </>}
       </section>
     </main>

@@ -44,12 +44,11 @@ export async function POST(request: NextRequest, context: Context) {
           warning_count: nextWarningCount,
           last_focus_warning_at: now,
           last_focus_warning_event: body.event,
-          ...(nextWarningCount > 3 ? { status: "locked", locked_at: now, lock_reason: "focus_violation" } : {}),
         },
       },
     );
     if (!update.matchedCount) return NextResponse.json({ error: "The exam attempt changed. Reload to check its status." }, { status: 409 });
-    return NextResponse.json({ warningCount: nextWarningCount, shouldLogout: nextWarningCount > 3 });
+    return NextResponse.json({ warningCount: nextWarningCount, shouldLogout: nextWarningCount >= 4 });
   } catch (error) {
     console.error("Exam focus warning failed:", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json({ error: "Could not record the exam-screen departure." }, { status: 503 });
