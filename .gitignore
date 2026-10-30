@@ -1,0 +1,48 @@
+node_modules/
+.next/
+out/
+.env*
+!.env.example
+supabase-export/
+.DS_Store
+*.tsbuildinfo
+
+# IDE & editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Test coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Next.js build output (already listed but ensure)
+.next/
+out/
+
+# Production build
+.build/
+
+# Misc
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Optional: ignore generated files
+public/static/
