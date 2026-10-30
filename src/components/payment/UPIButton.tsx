@@ -24,6 +24,10 @@ export function UPIButton({
   function handleClick() {
     try {
       const url = new URL('upi://pay');
+      if (!vpa.trim()) {
+        setError('UPI payments are not configured yet. Please contact the school office.');
+        return;
+      }
       url.searchParams.set('pa', vpa);
       url.searchParams.set('pn', name);
       url.searchParams.set('am', amount.toFixed(2));
@@ -38,8 +42,8 @@ export function UPIButton({
 
   return (
     <div className={className}>
-      <button onClick={handleClick} className="button button-primary">
-        Pay ₹{amount.toFixed(2)} via UPI
+      <button onClick={handleClick} className="button button-primary" disabled={!vpa.trim()}>
+        {vpa.trim() ? `Pay ₹${amount.toFixed(2)} via UPI` : 'UPI payment unavailable'}
       </button>
       {error && (
         <p className="notice warning" role="alert">

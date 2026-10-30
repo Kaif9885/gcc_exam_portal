@@ -102,7 +102,7 @@ export function StudentExamPaymentPage() {
             </p>
             <div className="exam-payment-upi">
               <UPIButton
-                vpa={process.env.NEXT_PUBLIC_PAYMENT_UPI_ID || "school@upi"}
+                vpa={process.env.NEXT_PUBLIC_PAYMENT_UPI_ID || ""}
                 name="School Payments"
                 amount={20}
                 className="payment-action"
