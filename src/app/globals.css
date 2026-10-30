@@ -162,6 +162,18 @@
 .exam-entry-card .lookup-footer{display:flex;justify-content:center;align-items:center}
 .exam-entry-card .lookup-footer span{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:#475569}
 .exam-entry-card .lookup-footer span svg{flex:none;color:#2860ec}
+.student-result-record-card{display:grid;grid-template-columns:42px minmax(0,1fr) 124px;align-items:center;width:100%;box-sizing:border-box}
+.student-result-record-card .student-record-main{min-width:0}
+.student-result-record-card .student-record-main h3{line-height:1.4;overflow-wrap:anywhere}
+.student-result-identity{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 7px;margin:0 0 7px;color:#738198;font-size:10px}
+.student-result-identity b{margin-right:8px;color:#263b5c;font-size:11px;overflow-wrap:anywhere}
+.student-result-record-card .student-record-main>p{line-height:1.45;overflow-wrap:anywhere}
+.student-result-record-card .student-record-main>span{line-height:1.5;overflow-wrap:anywhere}
+.student-result-record-card .student-record-score{min-width:0;padding:10px;border:1px solid #dce7f6;border-radius:9px;background:#f2f7ff;text-align:center}
+.student-result-record-card .student-record-score small{line-height:1.4;letter-spacing:.5px}
+.student-result-record-card .student-record-score b{font-size:20px;white-space:nowrap}
+.student-result-record-card .student-record-score>span{display:inline-flex;justify-content:center;padding:3px 8px;border-radius:999px;background:#e6f5ed;color:#28774f;font-weight:700}
+@media(max-width:700px){.student-result-record-card{grid-template-columns:34px minmax(0,1fr);align-items:start}.student-result-record-card .student-record-icon{width:34px;height:34px}.student-result-record-card .student-record-score{grid-column:2;display:flex;align-items:baseline;justify-content:flex-start;flex-wrap:wrap;gap:4px 9px;margin-top:2px;padding:7px 9px;text-align:left}.student-result-record-card .student-record-score b{font-size:18px}.student-result-record-card .student-record-score>span{font-size:10px}}
 .public-result-page .mongo-exam-result{width:min(100%,920px);max-width:920px!important;box-sizing:border-box;min-width:0}
 .mongo-result-student{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;color:#687891;font-size:10px}
 .mongo-result-student>span{display:grid;gap:3px}

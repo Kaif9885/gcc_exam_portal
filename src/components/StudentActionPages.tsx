@@ -95,10 +95,11 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
           <div className="student-record-list" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {payload?.results.length ? (
               payload.results.map((result, index) => (
-                <article className="student-record-card" key={`${result.examId}-${index}`}>
+                <article className="student-record-card student-result-record-card" key={`${result.examId}-${index}`}>
                   <div className="student-record-icon"><ClipboardList size={19} /></div>
                   <div className="student-record-main">
                     <h3>{formatDisplayText(result.title)}</h3>
+                    <div className="student-result-identity"><span>Student</span><b>{payload.student.fullName}</b><span>Roll No.</span><b>{payload.student.rollNumber}</b></div>
                     <p>{result.subject} · {formatDisplayText(result.chapter)}</p>
                     <span>
                       <CalendarDays size={13} /> Exam: {dateLabel(result.examDate)}
