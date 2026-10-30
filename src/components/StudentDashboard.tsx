@@ -104,10 +104,10 @@ export function StudentDashboard() {
                   gap: "10px",
                   margin: 0
                 }}
-                onClick={() => router.push("/student/results")}
+                onClick={() => router.push("/student/exams")}
               >
-                <ClipboardList size={17} />
-                <span>View results ({data.results.length})</span>
+                <BookOpenCheck size={17} />
+                <span>Attend exam ({activeExamsCount})</span>
                 <ArrowRight size={15} />
               </button>
 
@@ -124,10 +124,10 @@ export function StudentDashboard() {
                   gap: "10px",
                   margin: 0
                 }}
-                onClick={() => router.push("/student/exams")}
+                onClick={() => router.push("/student/results")}
               >
-                <BookOpenCheck size={17} />
-                <span>Attend exam ({activeExamsCount})</span>
+                <ClipboardList size={17} />
+                <span>View results ({data.results.length})</span>
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -148,7 +148,7 @@ export function StudentDashboard() {
                   color: "#374151"
                 }}
               >
-                Sign out
+                Log out
               </button>
             </footer>
           </>

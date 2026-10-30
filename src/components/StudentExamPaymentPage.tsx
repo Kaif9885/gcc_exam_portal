@@ -113,7 +113,7 @@ export function StudentExamPaymentPage() {
             <div className="exam-payment-upi">
               <UPIButton
                 vpa={paymentUpiId}
-                name="School Payments"
+                name="Md Kaif"
                 amount={20}
                 className="payment-action"
               />
