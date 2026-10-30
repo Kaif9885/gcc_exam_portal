@@ -191,8 +191,9 @@
 @media(max-width:700px){.student-result-record-card{display:block;padding:12px}.student-result-record-card>h3{font-size:9px}.student-result-identity{grid-template-columns:minmax(0,1fr);gap:8px}.student-result-dates{font-size:8px}.student-result-marks-table th{font-size:7px}.student-result-marks-table th,.student-result-marks-table td{padding:6px 2px}}
 .student-result-record-table{width:100%;border:1px solid #dce5f1;border-radius:7px;border-spacing:0;overflow:hidden;table-layout:fixed;background:#fff}
 .student-result-record-table th,.student-result-record-table td{padding:7px 9px;border-bottom:1px solid #e8edf4;text-align:left;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
-.student-result-record-table th{width:36%;background:#e8f0ff;color:#244f91;font-weight:700}
-.student-result-record-table td{background:#fff;color:#263b5c;font-weight:600}
+.student-result-record-table th,.student-result-record-table td{background:#e8f0ff;color:#263b5c;text-align:center}
+.student-result-record-table th{width:36%;font-weight:700}
+.student-result-record-table td{font-weight:600}
 .student-result-record-table tr:last-child th,.student-result-record-table tr:last-child td{border-bottom:0}
 .mongo-submitted-result-table{margin:16px 0 22px}
 @media(max-width:700px){.student-result-record-card>h3{font-size:9px}.student-result-record-table th,.student-result-record-table td{padding:6px 7px;font-size:9px}}
