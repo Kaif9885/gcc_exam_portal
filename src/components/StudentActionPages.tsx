@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, BookOpenCheck, CalendarDays, ClipboardList, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpenCheck, CalendarDays, LockKeyhole } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
 
 type Exam = { id: string; title: string; subject: string; chapter: string; durationSeconds: number; status: string; startsAt: string | null; endsAt: string | null };
@@ -94,25 +94,26 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
         ) : mode === "results" ? (
           <div className="student-record-list" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {payload?.results.length ? (
-              payload.results.map((result, index) => (
-                <article className="student-record-card student-result-record-card" key={`${result.examId}-${index}`}>
-                  <div className="student-record-icon"><ClipboardList size={19} /></div>
-                  <div className="student-record-main">
-                    <h3>{formatDisplayText(result.title)}</h3>
-                    <div className="student-result-identity"><span>Student</span><b>{payload.student.fullName}</b><span>Roll No.</span><b>{payload.student.rollNumber}</b></div>
-                    <p>{result.subject} · {formatDisplayText(result.chapter)}</p>
-                    <span>
-                      <CalendarDays size={13} /> Exam: {dateLabel(result.examDate)}
-                      {result.submittedAt ? ` · Submitted: ${dateLabel(result.submittedAt)}` : ""}
-                    </span>
-                  </div>
-                  <div className="student-record-score">
-                    <small>OBTAINED MARKS</small>
-                    <b>{result.marks} <i>/ {result.maxMarks}</i></b>
-                    <span>{Number(result.percentage).toFixed(1)}%</span>
-                  </div>
-                </article>
-              ))
+              payload.results.map((result, index) => {
+                const classLabel = payload.student.className.replace(/^Class\s*/i, "Class - ");
+                return (
+                  <article className="student-record-card student-result-record-card" key={`${result.examId}-${index}`}>
+                    <h3>{classLabel}, {result.subject} — {formatDisplayText(result.chapter || result.title)}</h3>
+                    <div className="student-result-identity">
+                      <div><span>Student name</span><b>{payload.student.fullName}</b></div>
+                      <div><span>Roll No.</span><b>{payload.student.rollNumber}</b></div>
+                    </div>
+                    <div className="student-result-dates">
+                      <span><CalendarDays size={13} /> Exam: {dateLabel(result.examDate)}</span>
+                      {result.submittedAt && <span>Submitted: {dateLabel(result.submittedAt)}</span>}
+                    </div>
+                    <table className="student-result-marks-table">
+                      <thead><tr><th>Total marks</th><th>Obtained marks</th><th>Percentage</th></tr></thead>
+                      <tbody><tr><td>{result.maxMarks}</td><td>{result.marks}</td><td>{Number(result.percentage).toFixed(1)}%</td></tr></tbody>
+                    </table>
+                  </article>
+                );
+              })
             ) : (
               <div className="empty-exams" style={{ textAlign: "center", padding: "28px 12px", color: "#6b7280" }}>
                 <LockKeyhole size={20} style={{ margin: "0 auto 8px", display: "block", color: "#9ca3af" }} />
