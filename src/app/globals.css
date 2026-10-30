@@ -176,7 +176,7 @@
 @media(max-width:700px){.student-result-record-card{grid-template-columns:34px minmax(0,1fr);align-items:start}.student-result-record-card .student-record-icon{width:34px;height:34px}.student-result-record-card .student-record-score{grid-column:2;display:flex;align-items:baseline;justify-content:flex-start;flex-wrap:wrap;gap:4px 9px;margin-top:2px;padding:7px 9px;text-align:left}.student-result-record-card .student-record-score b{font-size:18px}.student-result-record-card .student-record-score>span{font-size:10px}}
 .student-result-record-card{display:block;padding:14px 15px}
 .student-result-record-card>h3{margin:0 0 11px;font-size:clamp(9px,2vw,12px);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#263b5c}
-.student-result-identity{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 18px;margin-bottom:9px}
+.student-result-identity{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:8px;margin-bottom:9px}
 .student-result-identity>div{display:grid;gap:3px;min-width:0}
 .student-result-identity span{font-size:9px;color:#8190a5}
 .student-result-identity b{margin:0;font-size:11px;color:#263b5c;overflow-wrap:anywhere}
@@ -188,7 +188,7 @@
 .student-result-marks-table th:last-child,.student-result-marks-table td:last-child{border-right:0}
 .student-result-marks-table th{color:#718099;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.25px}
 .student-result-marks-table td{border-top:1px solid #dce7f6;color:#254a84;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
-@media(max-width:700px){.student-result-record-card{display:block;padding:12px}.student-result-record-card>h3{font-size:9px}.student-result-identity{grid-template-columns:minmax(0,1fr) auto;gap:8px}.student-result-dates{font-size:8px}.student-result-marks-table th{font-size:7px}.student-result-marks-table th,.student-result-marks-table td{padding:6px 2px}}
+@media(max-width:700px){.student-result-record-card{display:block;padding:12px}.student-result-record-card>h3{font-size:9px}.student-result-identity{grid-template-columns:minmax(0,1fr);gap:8px}.student-result-dates{font-size:8px}.student-result-marks-table th{font-size:7px}.student-result-marks-table th,.student-result-marks-table td{padding:6px 2px}}
 .public-result-page .mongo-exam-result{width:min(100%,920px);max-width:920px!important;box-sizing:border-box;min-width:0}
 .mongo-result-student{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;color:#687891;font-size:10px}
 .mongo-result-student>span{display:grid;gap:3px}
