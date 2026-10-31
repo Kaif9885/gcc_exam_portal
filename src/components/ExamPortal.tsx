@@ -7,7 +7,8 @@ import { ArrowRight, BookOpen, CheckCircle2, Clock3, GraduationCap, LockKeyhole,
 import { createClient } from "@/lib/supabase/client";
 import { PaperBuilder } from "@/components/PaperBuilder";
 import { StudentExamGate } from "@/components/StudentExamGate";
-import { formatOptionLabel, MathText } from "@/components/MathText";
+import { MathText } from "@/components/MathText";
+import { formatOptionLabel } from "@/lib/format-option-label";
 import { ExamPaymentReviewPanel } from "@/components/ExamPaymentReviewPanel";
 import { TeacherLoginGate, type TeacherLoginDetails } from "@/components/TeacherLoginGate";
 import { TeacherLiveProctor } from "@/components/TeacherLiveProctor";

@@ -11,6 +11,22 @@ function escapeHtml(value: unknown) {
   return String(value ?? "").replace(/[&<>"']/g, char => entities[char] ?? char);
 }
 
+function formatMathHtml(value: unknown) {
+  return String(value ?? "").split(/(\$[^$]+\$)/g).map(segment => {
+    if (!segment.startsWith("$") || !segment.endsWith("$")) return escapeHtml(segment).replaceAll("$", "");
+    const expression = escapeHtml(segment.slice(1, -1)).replace(/\\text\{([^{}]*)\}/g, "$1");
+    const formatted = expression
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '<span class="math-frac"><span>$1</span><span>$2</span></span>')
+      .replaceAll("\\times", "×")
+      .replaceAll("\\pi", "π")
+      .replaceAll("\\le", "≤")
+      .replaceAll("\\ge", "≥")
+      .replace(/\^2\b/g, "<sup>2</sup>")
+      .replace(/\^3\b/g, "<sup>3</sup>");
+    return `<span class="math-inline">${formatted}</span>`;
+  }).join("");
+}
+
 export function TeacherAnswerKeyDownload({
   examId, title, subject, chapter, className,
 }: {
@@ -33,14 +49,14 @@ export function TeacherAnswerKeyDownload({
       const questionHtml = questions.map((q, index) => `
         <article>
           <div class="question">
-            <b>Q${index + 1}. ${escapeHtml(q.body)}</b>
+            <b>Q${index + 1}. ${formatMathHtml(q.body)}</b>
             <span>${escapeHtml(q.marks)} mark${q.marks === 1 ? "" : "s"}</span>
           </div>
           ${q.image_url ? `<img class="question-image" src="${escapeHtml(q.image_url)}" alt="Question illustration">` : ""}
           <ol>${q.options.map(opt => `
             <li class="${opt.is_correct ? "correct" : ""}">
               ${opt.is_correct ? '<strong class="tick">✓</strong> ' : ""}
-              <b>${escapeHtml(opt.label)}.</b> ${escapeHtml(opt.body)}
+              <b>${escapeHtml(opt.label)}.</b> ${formatMathHtml(opt.body)}
             </li>`).join("")}
           </ol>
         </article>`).join("");
@@ -58,6 +74,7 @@ export function TeacherAnswerKeyDownload({
         li{padding:6px 8px;border-radius:5px;color:#394a63}
         .correct{background:#e8f7ee;color:#17633c;font-weight:700}
         .tick{color:#17633c;font-size:17px;margin-right:5px}
+        .math-inline{white-space:nowrap;font-family:Cambria,"Times New Roman",serif}.math-frac{display:inline-flex;flex-direction:column;vertical-align:middle;align-items:center;margin:0 .1em;line-height:1.05;font-size:.86em;white-space:nowrap}.math-frac>span:first-child{padding:0 .1em .05em;border-bottom:1px solid currentColor}.math-frac>span:last-child{padding:.04em .1em 0}
         @media print{body{margin:0 auto;padding:0 12px}header{break-after:avoid}}
       </style></head><body>
         <header><h1>GLORIOUS COACHING CENTRE</h1><p>${escapeHtml(title)}</p><p>${escapeHtml(className)} · ${escapeHtml(subject)} · ${escapeHtml(chapter)}</p></header>

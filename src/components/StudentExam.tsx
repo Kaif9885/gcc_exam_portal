@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
-import { formatOptionLabel, MathText } from "@/components/MathText";
+import { MathText } from "@/components/MathText";
+import { formatOptionLabel } from "@/lib/format-option-label";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
 type ExamState = { restarted?: boolean; student: { fullName: string; rollNumber: string }; attempt: { id: string; expiresAt: string; startedAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };

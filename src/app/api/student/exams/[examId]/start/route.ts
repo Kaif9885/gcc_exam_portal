@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { getStudentSession } from "@/lib/server/student-session";
+import { formatOptionLabel } from "@/lib/format-option-label";
 
 type Context = { params: Promise<{ examId: string }> };
 
@@ -88,11 +89,9 @@ export async function POST(request: NextRequest, context: Context) {
       return {
         id: questionId, body: String(question.body), position: Number(question.position), marks: Number(question.marks || 1),
         options: (optionsByQuestion.get(questionId) ?? []).map((option, index) => {
-          const storedLabel = option.option_label ?? option.label;
-          const cleanLabel = typeof storedLabel === "string" ? storedLabel.trim() : "";
           return {
             id: String(option.id ?? option._id),
-            label: cleanLabel && cleanLabel.toLowerCase() !== "undefined" ? cleanLabel : String.fromCharCode(65 + index),
+            label: formatOptionLabel(option.option_label || option.label, index),
             body: String(option.body ?? ""),
           };
         }),

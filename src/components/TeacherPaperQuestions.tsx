@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BookOpen, Eye, EyeOff } from "lucide-react";
+import { MathText } from "@/components/MathText";
 
 type Option = { label: string; body: string; is_correct: boolean };
 type Question = { id: string; position: number; body: string; marks: number; image_url: string | null; options: Option[] };
@@ -45,12 +46,12 @@ export function TeacherPaperQuestions({ examId }: { examId: string }) {
           ) : (
             questions.map((q, index) => (
               <article key={q.id}>
-                <b>Q{index + 1}. {q.body}</b>
+                <b>Q{index + 1}. <MathText text={q.body}/></b>
                 <small>{q.marks} mark{q.marks === 1 ? "" : "s"}</small>
                 <ol>
                   {q.options.map(opt => (
                     <li key={opt.label} className={opt.is_correct ? "answer-key" : ""}>
-                      <strong>{opt.label}.</strong> {opt.body}
+                      <strong>{opt.label}.</strong> <MathText text={opt.body}/>
                       {opt.is_correct && <em> Answer</em>}
                     </li>
                   ))}

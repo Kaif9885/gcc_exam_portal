@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { getTeacherSession } from "@/lib/server/teacher-session";
 import { getAdminSession } from "@/lib/server/admin-session";
+import { formatOptionLabel } from "@/lib/format-option-label";
 
 // GET /api/teacher/questions?examId=<id>
 export async function GET(request: NextRequest) {
@@ -33,13 +34,17 @@ export async function GET(request: NextRequest) {
     const allOptions = await db
       .collection("questionOptions")
       .find({ question_id: { $in: questionIds } })
+      .sort({ option_label: 1, label: 1 })
       .toArray();
 
     const optionsByQuestion = new Map<string, { label: string; body: string; is_correct: boolean }[]>();
+    const optionIndexes = new Map<string, number>();
     for (const opt of allOptions) {
       const qid = String(opt.question_id);
       const list = optionsByQuestion.get(qid) ?? [];
-      list.push({ label: String(opt.label), body: String(opt.body), is_correct: Boolean(opt.is_correct) });
+      const index = optionIndexes.get(qid) ?? 0;
+      list.push({ label: formatOptionLabel(opt.option_label || opt.label, index), body: String(opt.body ?? ""), is_correct: Boolean(opt.is_correct) });
+      optionIndexes.set(qid, index + 1);
       optionsByQuestion.set(qid, list);
     }
 
