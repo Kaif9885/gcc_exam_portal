@@ -68,12 +68,13 @@ export function TeacherAnswerKeyDownload({
 
       printWindow.document.open();
       printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)} — Questions</title><style>
-        body{font-family:Arial,sans-serif;color:#17243a;max-width:850px;margin:32px auto;padding:0 24px}
-        header{text-align:center;border-bottom:2px solid #17243a;padding-bottom:14px;margin-bottom:20px}
-        .school-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px}
-        .school-logo{width:58px;height:58px;object-fit:contain}
-        h1{font-size:22px;margin:0}.paper-title{margin:4px;color:#53627a}
-        article{padding:14px 0;border-bottom:1px solid #d9e0ea;break-inside:avoid}
+        body{font-family:Arial,sans-serif;color:#17243a;max-width:900px;margin:32px auto;padding:0 24px}
+        .paper-sheet{border:1px solid #cbd7e8;border-radius:14px;padding:26px 30px;background:#fff;box-shadow:0 8px 24px #17243a12}
+        header{text-align:left;border-bottom:2px solid #d8e1ee;padding-bottom:18px;margin-bottom:8px}
+        .school-brand{display:flex;align-items:center;justify-content:flex-start;gap:18px;margin-bottom:14px}
+        .school-logo{width:88px;height:88px;object-fit:contain;flex:none}
+        h1{font-size:30px;letter-spacing:.4px;margin:0;color:#17243a}.paper-title{margin:7px 0 0;color:#53627a;font-size:17px;font-weight:600}
+        article{padding:16px 0;border-bottom:1px solid #e2e8f1;break-inside:avoid}
         .question{display:flex;justify-content:space-between;gap:12px}
         .question span{white-space:nowrap;color:#687891;font-size:12px}
         .question-image{display:block;max-width:100%;max-height:280px;object-fit:contain;margin:12px 0}
@@ -82,10 +83,11 @@ export function TeacherAnswerKeyDownload({
         .correct{background:#e8f7ee;color:#17633c;font-weight:700}
         .tick{color:#17633c;font-size:17px;margin-right:5px}
         .math-inline{white-space:nowrap;font-family:Cambria,"Times New Roman",serif}.math-frac{display:inline-flex;flex-direction:column;vertical-align:middle;align-items:center;margin:0 .1em;line-height:1.05;font-size:.86em;white-space:nowrap}.math-frac>span:first-child{padding:0 .1em .05em;border-bottom:1px solid currentColor}.math-frac>span:last-child{padding:.04em .1em 0}
-        @media print{body{margin:0 auto;padding:0 12px}header{break-after:avoid}}
+        @media(max-width:600px){body{padding:0 10px}.paper-sheet{padding:18px 15px}.school-logo{width:64px;height:64px}h1{font-size:22px}.paper-title{font-size:15px}}
+        @media print{body{max-width:none;margin:0;padding:0}.paper-sheet{border:1px solid #b8c6d9;border-radius:0;padding:18px 22px;box-shadow:none}header{break-after:avoid}}
       </style></head><body>
-        <header><div class="school-brand"><img class="school-logo" src="${escapeHtml(logoUrl)}" alt="Glorious Coaching Centre logo"><h1>GLORIOUS COACHING CENTRE</h1></div><p class="paper-title">${escapeHtml(title)}</p>${metadata.length ? `<p class="paper-title">${metadata.map(escapeHtml).join(" · ")}</p>` : ""}</header>
-        ${questionHtml}
+        <main class="paper-sheet"><header><div class="school-brand"><img class="school-logo" src="${escapeHtml(logoUrl)}" alt="Glorious Coaching Centre logo"><h1>GLORIOUS COACHING CENTRE</h1></div><p class="paper-title">${escapeHtml(title)}</p>${metadata.length ? `<p class="paper-title">${metadata.map(escapeHtml).join(" · ")}</p>` : ""}</header>
+        ${questionHtml}</main>
         <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));<\/script>
       </body></html>`);
       printWindow.document.close();
