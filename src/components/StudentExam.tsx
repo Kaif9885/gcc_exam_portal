@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
+import { MathText } from "@/components/MathText";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
 type ExamState = { restarted?: boolean; student: { fullName: string; rollNumber: string }; attempt: { id: string; expiresAt: string; startedAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
@@ -22,6 +23,8 @@ export function StudentExam() {
   const [secondsLeft, setSecondsLeft] = useState(45);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [openingExam, setOpeningExam] = useState(false);
+  const [instructionsAccepted, setInstructionsAccepted] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Submission | null>(null);
   const [focusWarningCount, setFocusWarningCount] = useState<number | null>(null);
@@ -31,30 +34,35 @@ export function StudentExam() {
   const perQuestion = exam?.questions.length ? Math.max(1, Math.floor(exam.exam.durationSeconds / exam.questions.length)) : 45;
   const currentQuestion = exam?.questions[questionIndex];
 
-  useEffect(() => {
-    let active = true;
-    void fetch(`/api/student/exams/${encodeURIComponent(examId)}/start`, { method: "POST" }).then(async response => {
+  async function beginExam() {
+    if (openingExam) return;
+    setError("");
+    setInstructionsAccepted(true);
+    setOpeningExam(true);
+    try {
+      const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/start`, { method: "POST" });
       const payload = await response.json();
       if (response.status === 401) { router.replace("/student"); return; }
       if (!response.ok) {
-        if (response.status === 402) router.replace(`/student/payment/${encodeURIComponent(examId)}`);
-        else throw new Error(payload.error || "Could not start the exam.");
-        return;
+        if (response.status === 402) { router.replace(`/student/payment/${encodeURIComponent(examId)}`); return; }
+        throw new Error(payload.error || "Could not start the exam.");
       }
-      if (active) {
-        const restoredExam = payload as ExamState;
-        if (restoredExam.restarted) {
-          Object.keys(sessionStorage)
-            .filter(key => key === `mongo-exam-index:${restoredExam.attempt.id}` || key.startsWith(`mongo-exam-deadline:${restoredExam.attempt.id}:`))
-            .forEach(key => sessionStorage.removeItem(key));
-        }
-        const savedIndex = restoredExam.restarted ? 0 : Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
-        setQuestionIndex(Math.min(Math.max(0, savedIndex), restoredExam.questions.length - 1));
-        setExam(restoredExam);
+      const restoredExam = payload as ExamState;
+      if (restoredExam.restarted) {
+        Object.keys(sessionStorage)
+          .filter(key => key === `mongo-exam-index:${restoredExam.attempt.id}` || key.startsWith(`mongo-exam-deadline:${restoredExam.attempt.id}:`))
+          .forEach(key => sessionStorage.removeItem(key));
       }
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not start the exam."); });
-    return () => { active = false; };
-  }, [examId, router]);
+      const savedIndex = restoredExam.restarted ? 0 : Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
+      setQuestionIndex(Math.min(Math.max(0, savedIndex), restoredExam.questions.length - 1));
+      setExam(restoredExam);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start the exam.");
+      setInstructionsAccepted(false);
+    } finally {
+      setOpeningExam(false);
+    }
+  }
 
   useEffect(() => {
     if (!attemptId || result) return;
@@ -191,8 +199,8 @@ export function StudentExam() {
             return (
               <article className="demo-answer-question" key={question.id}>
                 <div className="demo-answer-question-head"><b>Question {index + 1}</b><span>{review?.marks ?? 0} / {question.marks} marks</span></div>
-                <p>{question.body}</p>
-                <ol>{question.options.map(option => <li className={`${review?.selectedOptionId === option.id ? "chosen" : ""} ${review?.correctOptionId === option.id ? "correct-answer" : ""}`} key={option.id}><span>{review?.correctOptionId === option.id ? "✓" : option.label}</span>{option.body}{review?.selectedOptionId === option.id && <small> Your answer</small>}</li>)}</ol>
+                <p><MathText text={question.body}/></p>
+                <ol>{question.options.map(option => <li className={`${review?.selectedOptionId === option.id ? "chosen" : ""} ${review?.correctOptionId === option.id ? "correct-answer" : ""}`} key={option.id}><span>{review?.correctOptionId === option.id ? "✓" : option.label}</span><MathText text={option.body}/>{review?.selectedOptionId === option.id && <small> Your answer</small>}</li>)}</ol>
               </article>
             );
           })}
@@ -206,7 +214,8 @@ export function StudentExam() {
       <section className="result-lookup-card mongo-exam-shell">
         <button className="exam-back-button" onClick={() => router.push("/student/exams")}><ArrowLeft size={13}/> Exit exam</button>
         {error && <div className="notice warning" role="alert">{error}</div>}
-        {!exam ? <div role="status"><h2>Opening exam…</h2></div> : currentQuestion && <>
+        {!exam && instructionsAccepted && <div role="status"><h2>Opening exam…</h2></div>}
+        {exam && currentQuestion && <>
           <div className="mongo-exam-toolbar">
             <div className="mongo-exam-toolbar-main">
               <span className="mongo-exam-title">{formatDisplayText(exam.exam.title)}</span>
@@ -219,8 +228,8 @@ export function StudentExam() {
           </div>
           <div className="mongo-save-notice"><Wifi size={15} aria-hidden="true"/><span>{saving ? "Saving answers…" : "Answers save automatically"}</span></div>
           <article className="demo-paper-question mongo-exam-question">
-            <b>Q{questionIndex + 1}. {currentQuestion.body}</b>
-            <div className="demo-options">{currentQuestion.options.map(option => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{option.label}</span>{option.body}</button>)}</div>
+            <b>Q{questionIndex + 1}. <MathText text={currentQuestion.body}/></b>
+            <div className="demo-options">{currentQuestion.options.map(option => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{option.label}</span><MathText text={option.body}/></button>)}</div>
             <div className="demo-question-actions">
               <small>{currentQuestion.selectedOptionId ? "Answer saved. Continue when ready." : "Select an option. The next question opens when the timer ends."}</small>
               <button className="button button-primary" type="button" disabled={saving || (!currentQuestion.selectedOptionId && secondsLeft > 0) || submitting} onClick={() => void next()}>{submitting ? "Submitting…" : questionIndex === exam.questions.length - 1 ? "Submit exam" : "Next question"}<ArrowRight size={14}/></button>
@@ -229,6 +238,7 @@ export function StudentExam() {
           <p className="card-footnote mongo-exam-footnote"><GraduationCap size={15}/><span>Refreshing will restore this attempt and saved answers.</span></p>
           {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam / परीक्षा में वापस जाएँ</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. {focusWarningCount === 3 ? "This is your final warning. Leaving again will sign you out. After logging in again, you must restart the exam from question 1." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining.`}</p><p lang="hi">चेतावनी {focusWarningCount}/3: आपने परीक्षा स्क्रीन छोड़ दी है। {focusWarningCount === 3 ? "यह आखिरी चेतावनी है। दोबारा स्क्रीन छोड़ने पर आप लॉग आउट हो जाएंगे। फिर लॉग इन करने पर परीक्षा प्रश्न 1 से शुरू करनी होगी।" : focusWarningCount === 2 ? "1 चेतावनी बाकी है।" : "2 चेतावनियाँ बाकी हैं।"}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam / परीक्षा जारी रखें</button></div></section></div>}
         </>}
+        {!instructionsAccepted && !exam && <div className="modal-backdrop exam-instructions-backdrop" role="presentation"><section className="confirm-modal exam-instructions-modal" role="dialog" aria-modal="true" aria-labelledby="exam-instructions-title"><h2 id="exam-instructions-title">Exam rules &amp; process / परीक्षा के नियम</h2><ol><li>“Start exam” दबाने पर परीक्षा और टाइमर शुरू होंगे।</li><li>हर सवाल के लिए टाइमर चलेगा; समय खत्म होने पर अगला सवाल खुलेगा।</li><li>एक विकल्प चुनें। जवाब अपने-आप सेव होगा; समय रहते विकल्प बदल सकते हैं।</li><li>परीक्षा के दौरान इसी स्क्रीन पर रहें। तीन चेतावनियों के बाद चौथी बार स्क्रीन छोड़ने पर लॉग आउट होंगे; फिर लॉग इन करके परीक्षा सवाल 1 से शुरू करनी होगी।</li><li>आखिरी सवाल के बाद “Submit exam” दबाकर अपना परिणाम देखें।</li></ol>{error && <div className="notice warning" role="alert">{error}</div>}<button className="button button-primary exam-instructions-start" type="button" onClick={() => void beginExam()} disabled={openingExam}>{openingExam ? "Opening exam…" : "Start exam"}</button></section></div>}
       </section>
     </main>
   );
