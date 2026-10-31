@@ -201,6 +201,7 @@
 .mongo-result-brand .demo-marksheet-kicker{font-size:11px;letter-spacing:1.1px;color:#284b84}
 .exam-instructions-modal ol{margin:16px 0;padding-left:22px;list-style:decimal}
 .exam-instructions-modal li{display:list-item;margin:9px 0;padding-left:3px;color:#526078;font-size:12px;line-height:1.55}
+.exam-instructions-modal li span,.exam-instructions-modal li small{display:block}.exam-instructions-modal li small{margin-top:2px;color:#7c899e;font-size:11px;line-height:1.5}
 .exam-instructions-start{width:100%;min-height:44px;margin-top:8px}
 .math-inline{white-space:nowrap;font-family:Cambria, "Times New Roman", serif;font-size:1.05em}
 .math-fraction{display:inline-flex;flex-direction:column;vertical-align:middle;align-items:center;margin:0 .1em;line-height:1.05;font-size:.86em;white-space:nowrap}
