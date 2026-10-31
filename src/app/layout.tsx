@@ -3,8 +3,8 @@ import { RouteHistoryControls } from "@/components/RouteHistoryControls";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Glorious High-Tech School | Examination Portal",
-  description: "Secure online examination portal for Glorious High-Tech School.",
+  title: "Glorious Coaching Centre | Examination Portal",
+  description: "Secure online examination portal for Glorious Coaching Centre.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

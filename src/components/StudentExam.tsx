@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
@@ -172,7 +173,7 @@ export function StudentExam() {
       <section className="result-lookup-card mongo-exam-result">
         <header className="demo-marksheet-toolbar">
           <div>
-            <span className="demo-marksheet-kicker">GLORIOUS HIGH-TECH SCHOOL</span>
+            <div className="mongo-result-brand"><Image src="https://gcc-result-out.onrender.com/static/logo.jpeg" alt="Glorious Coaching Centre logo" width={68} height={68} unoptimized/><span className="demo-marksheet-kicker">GLORIOUS COACHING CENTRE</span></div>
             <h2>Exam submitted</h2>
             <p>{formatDisplayText(exam.exam.title)}</p>
           </div>

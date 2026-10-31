@@ -196,6 +196,9 @@
 .student-result-record-table td{font-weight:600}
 .student-result-record-table tr:last-child th,.student-result-record-table tr:last-child td{border-bottom:0}
 .mongo-submitted-result-table{margin:16px 0 22px}
+.mongo-result-brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.mongo-result-brand img{width:58px;height:58px;object-fit:contain}
+.mongo-result-brand .demo-marksheet-kicker{font-size:11px;letter-spacing:1.1px;color:#284b84}
 .exam-instructions-modal ol{margin:16px 0;padding-left:22px;list-style:decimal}
 .exam-instructions-modal li{display:list-item;margin:9px 0;padding-left:3px;color:#526078;font-size:12px;line-height:1.55}
 .exam-instructions-start{width:100%;min-height:44px;margin-top:8px}
