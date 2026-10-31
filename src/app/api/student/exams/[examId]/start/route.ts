@@ -1,10 +1,19 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { getStudentSession } from "@/lib/server/student-session";
 import { formatOptionLabel } from "@/lib/format-option-label";
 
 type Context = { params: Promise<{ examId: string }> };
+
+function shuffledQuestionIds(questions: Array<{ id?: unknown; _id: unknown }>) {
+  const ids = questions.map(question => String(question.id ?? question._id));
+  for (let index = ids.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1);
+    [ids[index], ids[swapIndex]] = [ids[swapIndex], ids[index]];
+  }
+  return ids;
+}
 
 export async function POST(request: NextRequest, context: Context) {
   const session = getStudentSession(request);
@@ -32,6 +41,9 @@ export async function POST(request: NextRequest, context: Context) {
     const now = new Date();
     if (exam.starts_at && now < new Date(exam.starts_at)) return NextResponse.json({ error: "This exam has not started yet." }, { status: 409 });
     if (exam.ends_at && now > new Date(exam.ends_at)) return NextResponse.json({ error: "This exam schedule has ended." }, { status: 409 });
+    const questions = await db.collection("questions").find({ exam_id: examId }).sort({ position: 1 }).toArray();
+    if (!questions.length) return NextResponse.json({ error: "No questions are available for this exam yet." }, { status: 404 });
+    const freshQuestionOrder = shuffledQuestionIds(questions);
     const attempts = db.collection("examAttempts");
     let attempt = await attempts.findOne({ exam_id: examId, student_id: studentId });
     let restarted = false;
@@ -53,13 +65,14 @@ export async function POST(request: NextRequest, context: Context) {
             session_token: randomUUID(),
             warning_count: 0,
             restarted_at: restartedAt,
+            question_order: freshQuestionOrder,
           },
           $unset: { last_focus_warning_at: "", last_focus_warning_event: "" },
         },
       );
       if (reset.matchedCount) {
         await db.collection("studentAnswers").deleteMany({ attempt_id: String(attempt.id ?? attempt._id) });
-        attempt = { ...attempt, status: "in_progress", started_at: restartedAt, expires_at: expiresAt, submitted_at: null, warning_count: 0 };
+        attempt = { ...attempt, status: "in_progress", started_at: restartedAt, expires_at: expiresAt, submitted_at: null, warning_count: 0, question_order: freshQuestionOrder };
         restarted = true;
       } else {
         attempt = await attempts.findOne({ _id: attempt._id, status: "in_progress" });
@@ -70,11 +83,19 @@ export async function POST(request: NextRequest, context: Context) {
       const attemptId = `attempt:${randomUUID()}`;
       const durationSeconds = Number(exam.duration_seconds || 2700);
       const expiresAt = new Date(now.getTime() + durationSeconds * 1000);
-      attempt = { _id: attemptId, id: attemptId, exam_id: examId, student_id: studentId, status: "in_progress", started_at: now, expires_at: expiresAt, submitted_at: null, session_token: randomUUID(), warning_count: 0, created_at: now };
+      attempt = { _id: attemptId, id: attemptId, exam_id: examId, student_id: studentId, status: "in_progress", started_at: now, expires_at: expiresAt, submitted_at: null, session_token: randomUUID(), warning_count: 0, question_order: freshQuestionOrder, created_at: now };
       await db.collection("examAttempts").insertOne(attempt);
     }
-    const questions = await db.collection("questions").find({ exam_id: examId }).sort({ position: 1 }).toArray();
-    if (!questions.length) return NextResponse.json({ error: "No questions are available for this exam yet." }, { status: 404 });
+    if (!Array.isArray(attempt.question_order)) {
+      const legacyOrder = shuffledQuestionIds(questions);
+      await attempts.updateOne({ _id: attempt._id, status: "in_progress", $or: [{ question_order: { $exists: false } }, { question_order: null }] }, { $set: { question_order: legacyOrder } });
+      attempt = await attempts.findOne({ _id: attempt._id, status: "in_progress" });
+      if (!attempt) return NextResponse.json({ error: "This exam attempt is no longer active." }, { status: 409 });
+    }
+    const questionOrder = attempt.question_order as string[];
+    const questionsById = new Map(questions.map(question => [String(question.id ?? question._id), question]));
+    const orderedQuestions = questionOrder.map(id => questionsById.get(String(id))).filter((question): question is (typeof questions)[number] => Boolean(question));
+    if (orderedQuestions.length !== questions.length) return NextResponse.json({ error: "The saved exam question order is invalid. Please contact your teacher." }, { status: 409 });
     const questionIds = questions.map(question => String(question.id ?? question._id));
     const [options, answers] = await Promise.all([
       db.collection("questionOptions").find({ question_id: { $in: questionIds } }).sort({ option_label: 1, label: 1 }).toArray(),
@@ -83,11 +104,11 @@ export async function POST(request: NextRequest, context: Context) {
     const optionsByQuestion = new Map<string, typeof options>();
     for (const option of options) optionsByQuestion.set(String(option.question_id), [...(optionsByQuestion.get(String(option.question_id)) ?? []), option]);
     const answerByQuestion = new Map(answers.map(answer => [String(answer.question_id), answer]));
-    const paper = questions.map(question => {
+    const paper = orderedQuestions.map((question, index) => {
       const questionId = String(question.id ?? question._id);
       const answer = answerByQuestion.get(questionId);
       return {
-        id: questionId, body: String(question.body), position: Number(question.position), marks: Number(question.marks || 1),
+        id: questionId, body: String(question.body), position: index + 1, marks: Number(question.marks || 1),
         options: (optionsByQuestion.get(questionId) ?? []).map((option, index) => {
           return {
             id: String(option.id ?? option._id),
