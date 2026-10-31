@@ -554,9 +554,12 @@ export function TeacherDashboard() {
             {/* Answer Keys preview */}
             <div className="answer-key-panel" style={{ marginTop: 24 }}>
               <div className="results-toolbar">
-                <div>
+                <div className="answer-key-heading">
+                  <Image className="answer-key-logo" src="https://gcc-result-out.onrender.com/static/logo.jpeg" alt="Glorious Coaching Centre logo" width={42} height={42} unoptimized />
+                  <div>
                   <h3>Answer Keys & Question Papers</h3>
                   <p>Download or print answer keys and question papers for verified exams.</p>
+                  </div>
                 </div>
               </div>
               <div className="answer-key-list">
@@ -564,9 +567,12 @@ export function TeacherDashboard() {
                   <article key={p.id}>
                     <div>
                       <b>{p.title}</b>
-                      <small>
-                        {p.groups.map(g => g.name).join(", ")} · {p.subject} · {formatDisplayText(p.chapterName)}
-                      </small>
+                      {(() => {
+                        const title = p.title.toLocaleLowerCase();
+                        const details = [p.groups.map(g => g.name).join(", "), p.subject, formatDisplayText(p.chapterName)]
+                          .filter(value => value && !title.includes(value.toLocaleLowerCase()));
+                        return details.length ? <small>{details.join(" · ")}</small> : null;
+                      })()}
                     </div>
                     <TeacherAnswerKeyDownload
                       examId={p.id}

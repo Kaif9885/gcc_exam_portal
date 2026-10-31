@@ -46,6 +46,11 @@ export function TeacherAnswerKeyDownload({
       const questions = Array.isArray(json.questions) ? json.questions : [];
       if (!questions.length) throw new Error("No questions are available for this exam.");
 
+      const titleText = title.toLocaleLowerCase();
+      const metadata = [className, subject, chapter]
+        .filter(value => value && !titleText.includes(value.toLocaleLowerCase()));
+      const logoUrl = "https://gcc-result-out.onrender.com/static/logo.jpeg";
+
       const questionHtml = questions.map((q, index) => `
         <article>
           <div class="question">
@@ -65,7 +70,9 @@ export function TeacherAnswerKeyDownload({
       printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)} — Questions</title><style>
         body{font-family:Arial,sans-serif;color:#17243a;max-width:850px;margin:32px auto;padding:0 24px}
         header{text-align:center;border-bottom:2px solid #17243a;padding-bottom:14px;margin-bottom:20px}
-        h1{font-size:22px;margin:0 0 8px}header p{margin:4px;color:#53627a}
+        .school-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px}
+        .school-logo{width:58px;height:58px;object-fit:contain}
+        h1{font-size:22px;margin:0}.paper-title{margin:4px;color:#53627a}
         article{padding:14px 0;border-bottom:1px solid #d9e0ea;break-inside:avoid}
         .question{display:flex;justify-content:space-between;gap:12px}
         .question span{white-space:nowrap;color:#687891;font-size:12px}
@@ -77,7 +84,7 @@ export function TeacherAnswerKeyDownload({
         .math-inline{white-space:nowrap;font-family:Cambria,"Times New Roman",serif}.math-frac{display:inline-flex;flex-direction:column;vertical-align:middle;align-items:center;margin:0 .1em;line-height:1.05;font-size:.86em;white-space:nowrap}.math-frac>span:first-child{padding:0 .1em .05em;border-bottom:1px solid currentColor}.math-frac>span:last-child{padding:.04em .1em 0}
         @media print{body{margin:0 auto;padding:0 12px}header{break-after:avoid}}
       </style></head><body>
-        <header><h1>GLORIOUS COACHING CENTRE</h1><p>${escapeHtml(title)}</p><p>${escapeHtml(className)} · ${escapeHtml(subject)} · ${escapeHtml(chapter)}</p></header>
+        <header><div class="school-brand"><img class="school-logo" src="${escapeHtml(logoUrl)}" alt="Glorious Coaching Centre logo"><h1>GLORIOUS COACHING CENTRE</h1></div><p class="paper-title">${escapeHtml(title)}</p>${metadata.length ? `<p class="paper-title">${metadata.map(escapeHtml).join(" · ")}</p>` : ""}</header>
         ${questionHtml}
         <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));<\/script>
       </body></html>`);
