@@ -76,7 +76,7 @@ export async function POST(request: NextRequest, context: Context) {
     if (!questions.length) return NextResponse.json({ error: "No questions are available for this exam yet." }, { status: 404 });
     const questionIds = questions.map(question => String(question.id ?? question._id));
     const [options, answers] = await Promise.all([
-      db.collection("questionOptions").find({ question_id: { $in: questionIds } }).sort({ option_label: 1 }).toArray(),
+      db.collection("questionOptions").find({ question_id: { $in: questionIds } }).sort({ option_label: 1, label: 1 }).toArray(),
       db.collection("studentAnswers").find({ attempt_id: String(attempt.id ?? attempt._id) }).toArray(),
     ]);
     const optionsByQuestion = new Map<string, typeof options>();
@@ -87,7 +87,15 @@ export async function POST(request: NextRequest, context: Context) {
       const answer = answerByQuestion.get(questionId);
       return {
         id: questionId, body: String(question.body), position: Number(question.position), marks: Number(question.marks || 1),
-        options: (optionsByQuestion.get(questionId) ?? []).map(option => ({ id: String(option.id ?? option._id), label: String(option.option_label), body: String(option.body) })),
+        options: (optionsByQuestion.get(questionId) ?? []).map((option, index) => {
+          const storedLabel = option.option_label ?? option.label;
+          const cleanLabel = typeof storedLabel === "string" ? storedLabel.trim() : "";
+          return {
+            id: String(option.id ?? option._id),
+            label: cleanLabel && cleanLabel.toLowerCase() !== "undefined" ? cleanLabel : String.fromCharCode(65 + index),
+            body: String(option.body ?? ""),
+          };
+        }),
         selectedOptionId: answer?.option_id ? String(answer.option_id) : null,
       };
     });

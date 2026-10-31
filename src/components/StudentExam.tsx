@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
-import { MathText } from "@/components/MathText";
+import { formatOptionLabel, MathText } from "@/components/MathText";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
 type ExamState = { restarted?: boolean; student: { fullName: string; rollNumber: string }; attempt: { id: string; expiresAt: string; startedAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
@@ -201,7 +201,7 @@ export function StudentExam() {
               <article className="demo-answer-question" key={question.id}>
                 <div className="demo-answer-question-head"><b>Question {index + 1}</b><span>{review?.marks ?? 0} / {question.marks} marks</span></div>
                 <p><MathText text={question.body}/></p>
-                <ol>{question.options.map(option => <li className={`${review?.selectedOptionId === option.id ? "chosen" : ""} ${review?.correctOptionId === option.id ? "correct-answer" : ""}`} key={option.id}><span>{review?.correctOptionId === option.id ? "✓" : option.label}</span><MathText text={option.body}/>{review?.selectedOptionId === option.id && <small> Your answer</small>}</li>)}</ol>
+                <ol>{question.options.map((option, optionIndex) => <li className={`${review?.selectedOptionId === option.id ? "chosen" : ""} ${review?.correctOptionId === option.id ? "correct-answer" : ""}`} key={option.id}><span>{review?.correctOptionId === option.id ? "✓" : formatOptionLabel(option.label, optionIndex)}</span><MathText text={option.body}/>{review?.selectedOptionId === option.id && <small> Your answer</small>}</li>)}</ol>
               </article>
             );
           })}
@@ -230,7 +230,7 @@ export function StudentExam() {
           <div className="mongo-save-notice"><Wifi size={15} aria-hidden="true"/><span>{saving ? "Saving answers…" : "Answers save automatically"}</span></div>
           <article className="demo-paper-question mongo-exam-question">
             <b>Q{questionIndex + 1}. <MathText text={currentQuestion.body}/></b>
-            <div className="demo-options">{currentQuestion.options.map(option => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{option.label}</span><MathText text={option.body}/></button>)}</div>
+            <div className="demo-options">{currentQuestion.options.map((option, optionIndex) => <button type="button" className={currentQuestion.selectedOptionId === option.id ? "selected" : ""} key={option.id} onClick={() => void selectOption(option.id)} disabled={saving}><span>{formatOptionLabel(option.label, optionIndex)}</span><MathText text={option.body}/></button>)}</div>
             <div className="demo-question-actions">
               <small>{currentQuestion.selectedOptionId ? "Answer saved. Continue when ready." : "Select an option. The next question opens when the timer ends."}</small>
               <button className="button button-primary" type="button" disabled={saving || (!currentQuestion.selectedOptionId && secondsLeft > 0) || submitting} onClick={() => void next()}>{submitting ? "Submitting…" : questionIndex === exam.questions.length - 1 ? "Submit exam" : "Next question"}<ArrowRight size={14}/></button>

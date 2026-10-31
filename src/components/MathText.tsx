@@ -47,3 +47,8 @@ export function MathText({ text }: { text: string }) {
     return <span className="math-inline" key={`math-${index}`}>{renderFormula(segment.slice(1, -1), `math-${index}`)}</span>;
   })}</>;
 }
+
+export function formatOptionLabel(label: string | null | undefined, index: number) {
+  const cleanLabel = typeof label === "string" ? label.trim() : "";
+  return cleanLabel && cleanLabel.toLowerCase() !== "undefined" ? cleanLabel : String.fromCharCode(65 + index);
+}
