@@ -32,15 +32,10 @@ export async function POST(request: NextRequest, context: Context) {
       status: { $in: ["verified", "pending"] },
     });
     if (!payment) return NextResponse.json({ error: "Please enter your payment details before exam access." }, { status: 402 });
-    if (payment.status === "pending") {
-      await db.collection("examPaymentSubmissions").updateOne(
-        { _id: payment._id },
-        { $set: { status: "verified", reviewed_by: "system_auto", reviewed_at: new Date() } }
-      );
-    }
     const now = new Date();
     if (exam.starts_at && now < new Date(exam.starts_at)) return NextResponse.json({ error: "This exam has not started yet." }, { status: 409 });
-    if (exam.ends_at && now > new Date(exam.ends_at)) return NextResponse.json({ error: "This exam schedule has ended." }, { status: 409 });
+    const scheduledEnd = exam.ends_at ? new Date(exam.ends_at) : null;
+    if (scheduledEnd && now >= scheduledEnd) return NextResponse.json({ error: "This exam schedule has ended." }, { status: 409 });
     const questions = await db.collection("questions").find({ exam_id: examId }).sort({ position: 1 }).toArray();
     if (!questions.length) return NextResponse.json({ error: "No questions are available for this exam yet." }, { status: 404 });
     const freshQuestionOrder = shuffledQuestionIds(questions);
@@ -48,14 +43,18 @@ export async function POST(request: NextRequest, context: Context) {
     let attempt = await attempts.findOne({ exam_id: examId, student_id: studentId });
     let restarted = false;
     if (attempt && attempt.status !== "in_progress") {
-      if (attempt.status !== "locked") {
+      if (attempt.status === "locked") {
+        return NextResponse.json({ error: "This exam attempt is locked. Ask your teacher or administrator to grant another attempt." }, { status: 403 });
+      }
+      if (attempt.status !== "retry_allowed") {
         return NextResponse.json({ error: "This examination has already been submitted." }, { status: 409 });
       }
       const durationSeconds = Number(exam.duration_seconds || 2700);
       const restartedAt = new Date();
-      const expiresAt = new Date(restartedAt.getTime() + durationSeconds * 1000);
+      const attemptEnd = restartedAt.getTime() + durationSeconds * 1000;
+      const expiresAt = new Date(scheduledEnd ? Math.min(attemptEnd, scheduledEnd.getTime()) : attemptEnd);
       const reset = await attempts.updateOne(
-        { _id: attempt._id, status: "locked" },
+        { _id: attempt._id, status: "retry_allowed" },
         {
           $set: {
             status: "in_progress",
@@ -65,6 +64,7 @@ export async function POST(request: NextRequest, context: Context) {
             session_token: randomUUID(),
             warning_count: 0,
             restarted_at: restartedAt,
+            retry_started_at: restartedAt,
             question_order: freshQuestionOrder,
           },
           $unset: { last_focus_warning_at: "", last_focus_warning_event: "" },
@@ -82,9 +82,14 @@ export async function POST(request: NextRequest, context: Context) {
     if (!attempt) {
       const attemptId = `attempt:${randomUUID()}`;
       const durationSeconds = Number(exam.duration_seconds || 2700);
-      const expiresAt = new Date(now.getTime() + durationSeconds * 1000);
+      const attemptEnd = now.getTime() + durationSeconds * 1000;
+      const expiresAt = new Date(scheduledEnd ? Math.min(attemptEnd, scheduledEnd.getTime()) : attemptEnd);
       attempt = { _id: attemptId, id: attemptId, exam_id: examId, student_id: studentId, status: "in_progress", started_at: now, expires_at: expiresAt, submitted_at: null, session_token: randomUUID(), warning_count: 0, question_order: freshQuestionOrder, created_at: now };
       await db.collection("examAttempts").insertOne(attempt);
+    }
+    if (attempt.status === "in_progress" && scheduledEnd && new Date(attempt.expires_at).getTime() > scheduledEnd.getTime()) {
+      await attempts.updateOne({ _id: attempt._id, status: "in_progress" }, { $set: { expires_at: scheduledEnd } });
+      attempt = { ...attempt, expires_at: scheduledEnd };
     }
     if (!Array.isArray(attempt.question_order)) {
       const legacyOrder = shuffledQuestionIds(questions);

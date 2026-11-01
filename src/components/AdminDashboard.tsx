@@ -14,14 +14,14 @@ import {
   Search,
   Download,
   CheckCircle2,
-  XCircle,
   Clock3,
   BookOpen,
+  Pencil,
 } from "lucide-react";
-import { PaperBuilder } from "@/components/PaperBuilder";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
 import { formatDisplayText } from "@/lib/format-display";
+import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 
 type AdminTab = "results" | "payments" | "papers" | "sessions" | "students";
 
@@ -58,6 +58,7 @@ type PaymentRow = {
   subject: string;
   chapterName: string;
   amountInr: number;
+  paymentMethod: "cash" | "online";
   transactionReference: string;
   payerUpiId: string;
   payerName: string;
@@ -72,10 +73,13 @@ type PaperRow = {
   title: string;
   subject: string;
   chapterName: string;
+  academicSession: string;
   durationSeconds: number;
   maxMarks: number;
   passingMarks: number;
   published: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
   questionCount: number;
   groups: { slug: string; name: string }[];
 };
@@ -127,12 +131,12 @@ export function AdminDashboard() {
   // Papers State
   const [papers, setPapers] = useState<PaperRow[]>([]);
   const [papersLoading, setPapersLoading] = useState(false);
-  const [showBuilder, setShowBuilder] = useState(false);
 
   // Live Sessions State
   const [sessions, setSessions] = useState<LiveSessionRow[]>([]);
   const [sessionStats, setSessionStats] = useState({ active: 0, submitted: 0, total: 0 });
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [retryGrantingId, setRetryGrantingId] = useState("");
 
   // Students Roster State
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -141,6 +145,13 @@ export function AdminDashboard() {
 
   const [globalMessage, setGlobalMessage] = useState("");
   const [globalError, setGlobalError] = useState("");
+
+  useEffect(() => {
+    const saved = searchParams.get("examSaved");
+    if (!saved) return;
+    setGlobalMessage(saved === "updated" ? "Exam updated successfully." : "Exam created and saved successfully.");
+    router.replace("/admin/dashboard?tab=papers");
+  }, [router, searchParams]);
 
   // Sync tab with URL
   const switchTab = (nextTab: AdminTab) => {
@@ -216,6 +227,24 @@ export function AdminDashboard() {
     }
   }, []);
 
+  async function grantAnotherAttempt(attemptId: string) {
+    if (!window.confirm("Grant this student one more attempt? Their locked answers will be cleared when they start the retry.")) return;
+    setRetryGrantingId(attemptId);
+    setGlobalError("");
+    setGlobalMessage("");
+    try {
+      const response = await fetch(`/api/exam-attempts/${encodeURIComponent(attemptId)}/grant`, { method: "POST" });
+      const data = await response.json() as { message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not grant another attempt.");
+      setGlobalMessage(data.message || "Another exam attempt has been granted.");
+      await loadSessions();
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : "Could not grant another attempt.");
+    } finally {
+      setRetryGrantingId("");
+    }
+  }
+
   // Load Students
   const loadStudents = useCallback(async () => {
     try {
@@ -223,6 +252,7 @@ export function AdminDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load students.");
       setStudents(data.students || []);
+      if (data.groups) setClassGroups(data.groups);
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Error loading students.");
     }
@@ -259,17 +289,17 @@ export function AdminDashboard() {
   }
 
   // Payment review action
-  async function reviewPayment(paymentId: string, approved: boolean) {
+  async function reviewPayment(paymentId: string) {
     setPaymentActionBusy(paymentId);
     try {
       const res = await fetch("/api/admin/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId, approved }),
+        body: JSON.stringify({ paymentId, approved: true }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not update payment.");
-      setGlobalMessage(approved ? "Payment marked verified." : "Payment marked rejected.");
+      setGlobalMessage("Payment validated and marked verified.");
       await loadPayments();
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Payment action failed.");
@@ -402,7 +432,7 @@ export function AdminDashboard() {
               onClick={() => switchTab("papers")}
             >
               <FileText size={17} />
-              <span>Question Papers</span>
+              <span>Exams</span>
               {papers.length > 0 && <span className="admin-nav-badge">{papers.length}</span>}
             </button>
 
@@ -478,9 +508,8 @@ export function AdminDashboard() {
               <div>
                 <span className="eyebrow">CLASS-WISE EXAMINATION RESULTS</span>
                 <h1>Student Examination Results</h1>
-                <p>Filter, search, and inspect student marks across Classes 8 through 12.</p>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="admin-header-actions">
                 <button className="button button-secondary compact-button" onClick={() => void loadResults()} disabled={resultsLoading}>
                   <RefreshCw size={13} />
                   <span>{resultsLoading ? "Refreshing…" : "Refresh"}</span>
@@ -589,7 +618,7 @@ export function AdminDashboard() {
                           </td>
                           <td>
                             <b>{item.studentName}</b>
-                            <small>Roll: {item.rollNumber} · Code: {item.studentCode}</small>
+                            <small>Roll: {item.rollNumber}</small>
                           </td>
                           <td>
                             <span style={{ fontWeight: 600, color: "#374b6c" }}>{item.className}</span>
@@ -674,10 +703,12 @@ export function AdminDashboard() {
                 <h1>Student Exam Payments</h1>
                 <p>Complete record of exam fee submissions, PhonePe payer names, and verification states.</p>
               </div>
-              <button className="button button-secondary compact-button" onClick={() => void loadPayments()}>
-                <RefreshCw size={13} />
-                <span>Refresh</span>
-              </button>
+              <div className="admin-header-actions">
+                <button className="button button-secondary compact-button" onClick={() => void loadPayments()}>
+                  <RefreshCw size={13} />
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
             {/* Stats */}
@@ -740,7 +771,7 @@ export function AdminDashboard() {
                         <th>STUDENT</th>
                         <th>CLASS</th>
                         <th>EXAMINATION</th>
-                        <th>PHONEPE NAME</th>
+                        <th>PAYER / METHOD</th>
                         <th>AMOUNT</th>
                         <th>STATUS</th>
                         <th>PAID AT</th>
@@ -763,7 +794,7 @@ export function AdminDashboard() {
                           </td>
                           <td>
                             <b style={{ color: "#1e3a8a" }}>{p.payerName}</b>
-                            <small>UPI / PhonePe</small>
+                            <small>{p.paymentMethod === "cash" ? "Cash" : "Online · UPI"}</small>
                           </td>
                           <td>
                             <b>₹{p.amountInr}</b>
@@ -791,17 +822,9 @@ export function AdminDashboard() {
                                   className="button button-primary"
                                   style={{ height: 28, padding: "0 8px", fontSize: 10 }}
                                   disabled={paymentActionBusy === p.id}
-                                  onClick={() => void reviewPayment(p.id, true)}
+                                  onClick={() => void reviewPayment(p.id)}
                                 >
-                                  <CheckCircle2 size={12} /> Verify
-                                </button>
-                                <button
-                                  className="button button-secondary"
-                                  style={{ height: 28, padding: "0 8px", fontSize: 10 }}
-                                  disabled={paymentActionBusy === p.id}
-                                  onClick={() => void reviewPayment(p.id, false)}
-                                >
-                                  <XCircle size={12} /> Reject
+                                  <CheckCircle2 size={12} /> Validate
                                 </button>
                               </div>
                             ) : (
@@ -823,22 +846,22 @@ export function AdminDashboard() {
           </section>
         )}
 
-        {/* TAB 3: QUESTION PAPERS */}
+        {/* TAB 3: EXAMS */}
         {tab === "papers" && (
           <section>
             <div className="admin-header">
               <div>
-                <span className="eyebrow">QUESTION BANK & PAPER MANAGEMENT</span>
-                <h1>Examination Question Papers</h1>
-                <p>Create, inspect, and publish examination papers for school cohorts.</p>
+                <span className="eyebrow">EXAM MANAGEMENT</span>
+                <h1>Exams</h1>
+                <p>Create exams, set their start time, and manage class access.</p>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="admin-header-actions">
                 <button
                   className="button button-primary compact-button"
-                  onClick={() => setShowBuilder(!showBuilder)}
+                  onClick={() => router.push("/admin/exams/new")}
                 >
                   <FileText size={13} />
-                  <span>{showBuilder ? "Close Paper Builder" : "+ Create / Preset Paper"}</span>
+                  <span>+ Create Exam</span>
                 </button>
                 <button className="button button-secondary compact-button" onClick={() => void loadPapers()}>
                   <RefreshCw size={13} />
@@ -847,36 +870,24 @@ export function AdminDashboard() {
               </div>
             </div>
 
-            {/* Paper Builder Drawer */}
-            {showBuilder && (
-              <div style={{ marginBottom: 24 }}>
-                <PaperBuilder
-                  onCreated={() => {
-                    void loadPapers();
-                    setGlobalMessage("Question paper created and saved successfully.");
-                    setShowBuilder(false);
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Papers List */}
+            {/* Exams List */}
             <div className="paper-list">
               <div className="results-toolbar">
                 <div>
-                  <h3>Authorized Question Papers</h3>
-                  <p>All active question papers stored in the school database.</p>
+                  <h3>Scheduled Exams</h3>
+                  <p>Exam dates, access windows, and class assignments.</p>
                 </div>
-                <span>{papers.length} papers</span>
+                <span>{papers.length} exams</span>
               </div>
 
               {papers.length ? (
-                papers.map(paper => (
-                  <div className="paper-list-item" key={paper.id}>
+                papers.map(paper => {
+                  const scheduleStatus = getExamScheduleStatus(paper.published, paper.startsAt, paper.endsAt);
+                  return <div className="paper-list-item" key={paper.id}>
                     <article className="paper-row">
                       <div>
-                        <span className={`result-status ${paper.published ? "passed" : "failed"}`}>
-                          {paper.published ? "Published" : "Draft"}
+                        <span className={`result-status ${scheduleStatus.className}`}>
+                          {scheduleStatus.label}
                         </span>
                         <h4>{formatDisplayText(paper.title)}</h4>
                         <p>{paper.subject} · {formatDisplayText(paper.chapterName)}</p>
@@ -884,18 +895,24 @@ export function AdminDashboard() {
                           Classes: {paper.groups.map(g => g.name).join(" + ") || "All"} · {paper.maxMarks} marks ·{" "}
                           {paper.questionCount} questions · {Math.round(paper.durationSeconds / 60)} minutes
                         </small>
+                        <small className="paper-schedule-detail">
+                          Starts: {formatExamDateTime(paper.startsAt)} · Access closes: {formatExamDateTime(paper.endsAt)}
+                        </small>
                       </div>
                       <div className="paper-result-status">
-                        Passing: {paper.passingMarks} marks
+                        <span>Passing: {paper.passingMarks} marks</span>
+                        <button className="button button-secondary compact-button" type="button" onClick={() => router.push(`/admin/exams/${encodeURIComponent(paper.id)}`)}>
+                          <Pencil size={13} /> Edit
+                        </button>
                       </div>
                     </article>
                     <TeacherPaperQuestions examId={paper.id} />
-                  </div>
-                ))
+                  </div>;
+                })
               ) : (
                 <div className="empty-exams">
                   <BookOpen size={18} />
-                  <span>No question papers loaded.</span>
+                  <span>No exams have been created yet.</span>
                 </div>
               )}
             </div>
@@ -911,10 +928,12 @@ export function AdminDashboard() {
                 <h1>Live Exam Sessions Monitor</h1>
                 <p>Track active student exam attempts in real time across all classes.</p>
               </div>
-              <button className="button button-secondary compact-button" onClick={() => void loadSessions()} disabled={sessionsLoading}>
-                <RefreshCw size={13} />
-                <span>{sessionsLoading ? "Refreshing…" : "Refresh"}</span>
-              </button>
+              <div className="admin-header-actions">
+                <button className="button button-secondary compact-button" onClick={() => void loadSessions()} disabled={sessionsLoading}>
+                  <RefreshCw size={13} />
+                  <span>{sessionsLoading ? "Refreshing…" : "Refresh"}</span>
+                </button>
+              </div>
             </div>
 
             {/* Stats */}
@@ -958,6 +977,7 @@ export function AdminDashboard() {
                         <th>WARNINGS</th>
                         <th>STARTED AT</th>
                         <th>EXPIRES AT</th>
+                        <th>ACTION</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -979,7 +999,7 @@ export function AdminDashboard() {
                               className={`result-status ${
                                 s.status === "in_progress"
                                   ? "pending"
-                                  : s.status === "submitted"
+                                  : s.status === "submitted" || s.status === "retry_allowed"
                                   ? "passed"
                                   : "failed"
                               }`}
@@ -997,6 +1017,18 @@ export function AdminDashboard() {
                           </td>
                           <td>
                             <small>{new Date(s.expiresAt).toLocaleTimeString()}</small>
+                          </td>
+                          <td>
+                            {s.status === "locked" && (
+                              <button
+                                className="button button-secondary compact-button"
+                                type="button"
+                                onClick={() => void grantAnotherAttempt(s.id)}
+                                disabled={Boolean(retryGrantingId)}
+                              >
+                                {retryGrantingId === s.id ? "Granting…" : "Grant reattempt"}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1022,10 +1054,12 @@ export function AdminDashboard() {
                 <h1>Student Roster & Class Cohorts</h1>
                 <p>Inspect all registered students by class with their assigned roll numbers.</p>
               </div>
-              <button className="button button-secondary compact-button" onClick={() => void loadStudents()}>
-                <RefreshCw size={13} />
-                <span>Refresh</span>
-              </button>
+              <div className="admin-header-actions">
+                <button className="button button-secondary compact-button" onClick={() => void loadStudents()}>
+                  <RefreshCw size={13} />
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
             {/* Class Filter Pills */}
@@ -1112,4 +1146,3 @@ export function AdminDashboard() {
     </div>
   );
 }
-

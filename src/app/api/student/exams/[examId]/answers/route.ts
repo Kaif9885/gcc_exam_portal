@@ -18,6 +18,8 @@ export async function PUT(request: NextRequest, context: Context) {
     const studentId = String(student.id ?? student._id);
     const attempt = await db.collection("examAttempts").findOne({ _id: body.attemptId, exam_id: examId, student_id: studentId, status: "in_progress" });
     if (!attempt || new Date(attempt.expires_at).getTime() <= Date.now()) return NextResponse.json({ error: "Exam attempt is expired or no longer active." }, { status: 409 });
+    const exam = await db.collection("exams").findOne({ _id: examId });
+    if (exam?.ends_at && Date.now() >= new Date(exam.ends_at).getTime()) return NextResponse.json({ error: "The exam access window has ended." }, { status: 409 });
     const question = await db.collection("questions").findOne({ _id: body.questionId, exam_id: examId });
     if (!question) return NextResponse.json({ error: "Question does not belong to this exam." }, { status: 400 });
     if (body.optionId) {

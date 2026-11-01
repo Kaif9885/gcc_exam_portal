@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { RouteHistoryControls } from "@/components/RouteHistoryControls";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><RouteHistoryControls/>{children}</body></html>;
+  return <html lang="en"><body>{children}</body></html>;
 }

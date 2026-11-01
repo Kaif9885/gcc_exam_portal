@@ -42,10 +42,13 @@ export async function GET(request: NextRequest) {
         title: String(exam.title ?? "Exam Paper"),
         subject: String(exam.subject ?? "—"),
         chapterName: String(exam.chapter_name ?? "—"),
+        academicSession: String(exam.academic_session ?? "2026-27"),
         durationSeconds: Number(exam.duration_seconds ?? 2700),
         maxMarks: Number(exam.max_marks ?? 60),
         passingMarks: Number(exam.passing_marks ?? 20),
         published: Boolean(exam.published),
+        startsAt: exam.starts_at ? new Date(exam.starts_at).toISOString() : null,
+        endsAt: exam.ends_at ? new Date(exam.ends_at).toISOString() : null,
         resultsPublished: Boolean(exam.results_published ?? true),
         questionCount: questionCountByExam.get(id) ?? 0,
         groups: groupsByExam.get(id) ?? [],
@@ -58,4 +61,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Could not load examination papers." }, { status: 503 });
   }
 }
-

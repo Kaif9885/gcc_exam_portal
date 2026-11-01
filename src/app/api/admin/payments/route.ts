@@ -10,27 +10,42 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = await getMongoDb();
-    const rows = await db
-      .collection("examPaymentSubmissions")
-      .find({})
-      .sort({ created_at: -1 })
-      .limit(500)
-      .toArray();
+    const [rows, groups] = await Promise.all([
+      db
+        .collection("examPaymentSubmissions")
+        .find({})
+        .sort({ created_at: -1 })
+        .limit(500)
+        .toArray(),
+      db.collection("examGroups").find({}).toArray(),
+    ]);
+    const groupNames = new Map<string, string>();
+    for (const group of groups) {
+      const name = String(group.name ?? "Class");
+      for (const key of [group.id, group._id, group.slug]) {
+        if (key !== undefined && key !== null) groupNames.set(String(key), name);
+      }
+    }
 
     const payments = rows.map(row => ({
       id: String(row.id ?? row._id),
       studentName: String(row.student_name ?? "Student"),
       rollNumber: String(row.roll_number ?? "—"),
       board: String(row.board ?? "BSEB"),
-      groupName: String(row.exam_group_id ?? "School"),
+      groupName: groupNames.get(String(row.exam_group_id ?? "")) ?? "Class",
       subject: String(row.subject ?? "—"),
       chapterName: String(row.chapter_name ?? "—"),
       amountInr: Number(row.amount ?? 20),
+      paymentMethod: row.payment_method === "cash" ? "cash" : "online",
       transactionReference: String(row.transaction_reference ?? "PhonePe"),
       payerUpiId: String(row.payer_upi_id ?? "—"),
       payerName: String(row.payer_name ?? "—"),
       paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : new Date().toISOString(),
-      status: row.status === "verified" ? "verified" : row.status === "rejected" ? "rejected" : "pending",
+      status: row.status === "verified" && row.reviewed_by !== "system_auto"
+        ? "verified"
+        : row.status === "rejected"
+          ? "rejected"
+          : "pending",
       reviewedBy: String(row.reviewed_by ?? "—"),
       reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
       createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
@@ -77,7 +92,13 @@ export async function POST(request: NextRequest) {
   try {
     const db = await getMongoDb();
     const result = await db.collection("examPaymentSubmissions").updateOne(
-      { _id: body.paymentId },
+      {
+        _id: body.paymentId,
+        $or: [
+          { status: "pending" },
+          { status: "verified", reviewed_by: "system_auto" },
+        ],
+      },
       {
         $set: {
           status: body.approved ? "verified" : "rejected",
@@ -105,4 +126,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Could not update payment status." }, { status: 503 });
   }
 }
-

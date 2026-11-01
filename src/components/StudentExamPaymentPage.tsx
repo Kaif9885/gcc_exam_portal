@@ -9,7 +9,7 @@ import { formatDisplayText } from "@/lib/format-display";
 type PaymentPayload = {
   student: { fullName: string; rollNumber: string; board: string; className: string };
   exam: { id: string; title: string; subject: string; chapter: string; durationSeconds: number };
-  payment: { status: "pending" | "verified" | "rejected"; statusToken: string; payerName?: string; paidAt?: string } | null;
+  payment: { status: "pending" | "verified" | "rejected"; statusToken: string; payerName?: string; paidAt?: string; method?: "cash" | "online" } | null;
 };
 
 export function StudentExamPaymentPage() {
@@ -18,6 +18,7 @@ export function StudentExamPaymentPage() {
   const [data, setData] = useState<PaymentPayload | null>(null);
   const [payerName, setPayerName] = useState("");
   const [paidAt, setPaidAt] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "online" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -62,24 +63,27 @@ export function StudentExamPaymentPage() {
     return () => { active = false; };
   }, [load, examId, router]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitPayment(method: "cash" | "online", name: string, paymentTime: Date) {
     setBusy(true);
     setError("");
     try {
       const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payerName, paidAt: new Date(paidAt).toISOString() }),
+        body: JSON.stringify({ payerName: name, paidAt: paymentTime.toISOString(), paymentMethod: method }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Payment details could not be submitted.");
-      // Direct open questions after entering name and date time without staff validation
       router.push(`/exam/${encodeURIComponent(examId)}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Payment details could not be submitted.");
       setBusy(false);
     }
+  }
+
+  async function submitOnline(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitPayment("online", payerName, new Date(paidAt));
   }
 
   return (
@@ -109,15 +113,23 @@ export function StudentExamPaymentPage() {
           <>
             <h2>Pay ₹20 to continue</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            <p className="payment-upi-instructions">Click the button below and complete the ₹20 payment in your UPI app.</p>
-            <div className="exam-payment-upi">
-              <UPIButton
-                vpa={paymentUpiId}
-                name="Md Kaif"
-                amount={20}
-                className="payment-action"
-              />
+            <p className="payment-upi-instructions">Choose how you paid the ₹20 exam fee.</p>
+            <div className="exam-payment-methods" role="group" aria-label="Payment method">
+              <button type="button" className={`exam-payment-method${paymentMethod === "cash" ? " selected" : ""}`} aria-pressed={paymentMethod === "cash"} onClick={() => setPaymentMethod("cash")}>
+                <b>Cash</b><span>Pay ₹20 at the school</span>
+              </button>
+              <button type="button" className={`exam-payment-method${paymentMethod === "online" ? " selected" : ""}`} aria-pressed={paymentMethod === "online"} onClick={() => setPaymentMethod("online")}>
+                <b>Online</b><span>Pay ₹20 using UPI</span>
+              </button>
             </div>
+            {paymentMethod === "online" && (
+              <>
+                <p className="payment-upi-instructions">Complete the ₹20 payment in your UPI app, then enter the payment details below.</p>
+                <div className="exam-payment-upi">
+                  <UPIButton vpa={paymentUpiId} name="Md Kaif" amount={20} className="payment-action" />
+                </div>
+              </>
+            )}
             {error && <div className="notice warning" role="alert">{error}</div>}
             {data.payment?.status === "verified" || data.payment?.status === "pending" ? (
               <div className="exam-auth-notice payment-status-verified">
@@ -130,8 +142,18 @@ export function StudentExamPaymentPage() {
                   </button>
                 </div>
               </div>
-            ) : (
-              <form className="lookup-form payment-confirm-form" onSubmit={submit}>
+            ) : paymentMethod === "cash" ? (
+              <button
+                className="button button-primary lookup-submit"
+                type="button"
+                disabled={busy}
+                onClick={() => void submitPayment("cash", data.student.fullName, new Date())}
+              >
+                {busy ? "Opening exam…" : "Open exam"}
+                <ArrowRight size={15} />
+              </button>
+            ) : paymentMethod === "online" ? (
+              <form className="lookup-form payment-confirm-form" onSubmit={submitOnline}>
                 <label htmlFor="exam-payer-name">Payer account name</label>
                 <input
                   id="exam-payer-name"
@@ -149,15 +171,12 @@ export function StudentExamPaymentPage() {
                   onChange={event => setPaidAt(event.target.value)}
                   required
                 />
-                <button
-                  className="button button-primary lookup-submit"
-                  disabled={busy || !payerName.trim() || !paidAt}
-                >
-                  {busy ? "Opening questions…" : "Submit & open questions"}
+                <button className="button button-primary lookup-submit" disabled={busy || !payerName.trim() || !paidAt}>
+                  {busy ? "Opening questions…" : "Submit payment details & open exam"}
                   <ArrowRight size={15} />
                 </button>
               </form>
-            )}
+            ) : <p className="exam-cash-instructions">Select Cash or Online to enter payment details.</p>}
           </>
         )}
         <footer className="lookup-footer">
