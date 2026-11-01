@@ -113,20 +113,16 @@ export function StudentExamPaymentPage() {
           <>
             <h2>Pay ₹20 to continue</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            <p className="payment-upi-instructions">Pay ₹20 using the button below or scan this QR code with any UPI app.</p>
+            <p className="payment-upi-instructions">Choose how you paid the ₹20 examination fee.</p>
             <div className="exam-payment-qr-panel">
               <a href={qr} target="_blank" rel="noreferrer" aria-label="Open Md Kaif's UPI payment QR code">
                 <img className="exam-payment-qr-image" src={qr} alt="Md Kaif Paytm UPI payment QR code" />
               </a>
               <span>Scan to pay Md Kaif via UPI</span>
             </div>
-            <div className="exam-payment-upi">
-              <UPIButton
-                vpa={paymentUpiId}
-                name="Md Kaif"
-                amount={20}
-                className="payment-action"
-              />
+            <div className="payment-method-options" role="group" aria-label="Payment method">
+              <button type="button" className={`button ${paymentMethod === "cash" ? "button-primary" : "button-secondary"}`} onClick={() => setPaymentMethod("cash")}>Cash / Offline</button>
+              <button type="button" className={`button ${paymentMethod === "online" ? "button-primary" : "button-secondary"}`} onClick={() => setPaymentMethod("online")}>Online / UPI</button>
             </div>
             {paymentMethod === "online" && (
               <>
@@ -182,7 +178,7 @@ export function StudentExamPaymentPage() {
                   <ArrowRight size={15} />
                 </button>
               </form>
-            ) : <p className="exam-cash-instructions">Select Cash or Online to enter payment details.</p>}
+            ) : <p className="exam-cash-instructions">Select Cash / Offline or Online / UPI above to continue.</p>}
           </>
         )}
         <footer className="lookup-footer">
