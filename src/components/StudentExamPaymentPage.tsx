@@ -23,7 +23,7 @@ export function StudentExamPaymentPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [paymentUpiId, setPaymentUpiId] = useState("");
-  const qr = process.env.NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL || "/payments/phonepe-payment-qr.jpg";
+  const qr = process.env.NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL || "/PHOTO-2026-11-01-21-54-51.jpg";
 
   useEffect(() => {
     let active = true;
@@ -113,14 +113,20 @@ export function StudentExamPaymentPage() {
           <>
             <h2>Pay ₹20 to continue</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            <p className="payment-upi-instructions">Choose how you paid the ₹20 exam fee.</p>
-            <div className="exam-payment-methods" role="group" aria-label="Payment method">
-              <button type="button" className={`exam-payment-method${paymentMethod === "cash" ? " selected" : ""}`} aria-pressed={paymentMethod === "cash"} onClick={() => setPaymentMethod("cash")}>
-                <b>Cash</b><span>Pay ₹20 at the school</span>
-              </button>
-              <button type="button" className={`exam-payment-method${paymentMethod === "online" ? " selected" : ""}`} aria-pressed={paymentMethod === "online"} onClick={() => setPaymentMethod("online")}>
-                <b>Online</b><span>Pay ₹20 using UPI</span>
-              </button>
+            <p className="payment-upi-instructions">Pay ₹20 using the button below or scan this QR code with any UPI app.</p>
+            <div className="exam-payment-qr-panel">
+              <a href={qr} target="_blank" rel="noreferrer" aria-label="Open Md Kaif's UPI payment QR code">
+                <img className="exam-payment-qr-image" src={qr} alt="Md Kaif Paytm UPI payment QR code" />
+              </a>
+              <span>Scan to pay Md Kaif via UPI</span>
+            </div>
+            <div className="exam-payment-upi">
+              <UPIButton
+                vpa={paymentUpiId}
+                name="Md Kaif"
+                amount={20}
+                className="payment-action"
+              />
             </div>
             {paymentMethod === "online" && (
               <>
