@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       id: String(row.id ?? row._id), student_name: String(row.student_name ?? ""), roll_number: String(row.roll_number ?? ""),
       board: String(row.board ?? "BSEB"), group_name: groupNames.get(String(row.exam_group_id)) ?? "Class", subject: String(row.subject ?? ""),
       chapter_name: String(row.chapter_name ?? ""), amount_inr: Number(row.amount ?? row.amount_inr ?? 20), payer_name: String(row.payer_name ?? ""),
+      payment_method: row.payment_method === "cash" ? "cash" : "online",
       paid_at: row.paid_at ?? null, status: String(row.status ?? "pending"), created_at: row.created_at ?? null,
     })) });
   } catch (error) {

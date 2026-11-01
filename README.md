@@ -53,9 +53,9 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 - Supabase RLS rules are enabled for the sensitive core tables; `question_options.is_correct` has no client-select policy. Answer and result writes are limited to trusted database functions.
 - Security headers and no demo student data.
 - Student registration fields: name, roll number, one of six groups (Class 8/9/10 Boys/10 Girls/11/12), Biology/Physics/Chemistry, chapter name, email/password and payment reference. Registration remains pending until an administrator reviews payment and approves the roster record.
-- Teacher paper builder: exam title, subject, chapter, class group, session, duration, passing marks, four-option MCQs with one answer key, draft/publish control and optional shared paper for Class 10 Boys/Girls. Sharing requires teacher authorization for both groups.
+- Exam builder: exam title, subject, chapter, class group, session, start date/time in India time, attempt duration, passing marks, four-option MCQs with one answer key, draft/publish control and optional shared exam for Class 10 Boys/Girls. Published exams open at the scheduled time for 24 hours; students must start within that window, and the per-attempt timer remains in effect. A locked attempt requires an authorized teacher/admin to grant a one-time retry, which remains subject to the same schedule. Sharing requires teacher authorization for both groups.
 - Teacher results view includes group-separated class ranks and top-three cards. Admin accounts additionally receive a registration/payment review queue.
-- Payment form collects payer name and payment date/time. Requests remain pending until an administrator verifies them against the PhonePe account.
+- Exam payment offers Cash or Online UPI for the ₹20 fee. Cash uses the signed-in student's name and records the confirmation time; online payment collects the payer name and payment date/time. Submitting either method records a pending payment and enables exam access; an administrator validates the record against received-payment history, updating verified-payment totals.
 - Student accounts receive a result lookup styled after the supplied sample (board, class, subject, chapter, name and roll). Sign-in is required and server-side matching restricts results to that student's own published records.
 - Teacher paper builder can load the supplied 60-question Class 12 Biology reproduction paper. Its answer key remains in a server-only module and is served only to authorized Class 12 teachers through a private, no-store endpoint.
 - Teacher login collects name (Md Arif), password, class, subject and chapter, maps the name to the server-only teacher Auth email, and checks role/class assignment. There is no teacher self-signup.
@@ -67,7 +67,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 - The browser countdown is a display aid; the database stores a server-generated expiry. A scheduled server-side job should finalize expired attempts that are abandoned before reconnecting.
 - Failed answer saves are retried on reconnection while the page remains open; queued answers are not durable across an offline refresh. Test network interruption before production.
 - Bulk student/question import, paper editing/deletion, publishing controls for results, and audit-log review UI remain unfinished. Payment references are manually reviewed; a reference is not proof of payment until staff verify it with the school payee.
-- Payment submission requires an existing authorized student account whose full name, roll, board and class match. Admin verification is required, and the database rejects new attempts without a verified payment matching that exam's group, subject and chapter.
+- Payment submission requires an existing authorized student account whose full name, roll, board and class match. Students can start after submitting payment details; administrators validate payment records separately against received-payment history.
 - The app no longer requests or streams camera video. Its active-session view lists exam sessions only.
 - The Class 10 boys/girls shared paper uses one `exams` paper plus multiple `exam_group_assignments`; student/attempt records remain distinct. Teacher ranks are computed per `(exam_id, exam_group_id)`, not solely by the shared paper id.
 - CSV/Excel and PDF/Word question import, image storage policies, duplicate-session heartbeat, stronger idempotent warning deduplication, retention policies, backup/restore drills, and end-to-end tests remain to be completed.
@@ -85,7 +85,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 7. Test withheld results, print output, teacher access scopes, group-separated rankings and ties.
 8. Verify student-facing network responses never contain correctness flags or other students' data.
 9. Verify all six registration groups, the ₹20 manual payment review and admin approval; test duplicate roll numbers.
-10. Test question-paper creation, exactly four options/one answer, paper mark totals, drafts, and independent Class 10 Boys/Girls results and merit positions.
+10. Test exam creation and editing before attempts begin, exactly four options/one answer, paper mark totals, schedule boundaries, drafts, and independent Class 10 Boys/Girls results and merit positions.
 11. Verify Class 12 roster matching, board selection and that result lookup cannot access another student's result.
 
 ## Deployment

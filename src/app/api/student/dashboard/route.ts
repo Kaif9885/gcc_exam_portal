@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
       const result = resultByExam.get(id);
       const startsAt = exam.starts_at ? new Date(exam.starts_at).getTime() : null;
       const endsAt = exam.ends_at ? new Date(exam.ends_at).getTime() : null;
-      let status = attempt?.status === "locked" ? "available" : attempt?.status ?? "available";
-      if (!attempt && startsAt !== null && now < startsAt) status = "scheduled";
-      if (!attempt && endsAt !== null && now > endsAt) status = "closed";
+      let status = attempt?.status === "retry_allowed" ? "available" : attempt?.status ?? "available";
+      if (attempt?.status !== "submitted" && startsAt !== null && now < startsAt) status = "scheduled";
+      if (attempt?.status !== "submitted" && endsAt !== null && now >= endsAt) status = "closed";
       return {
         id, title: String(exam.title), subject: String(exam.subject), chapter: String(exam.chapter_name ?? ""),
         durationSeconds: Number(exam.duration_seconds ?? 0), status,

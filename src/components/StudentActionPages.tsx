@@ -13,7 +13,9 @@ type Payload = { student: { fullName: string; rollNumber: string; className: str
 function dateLabel(value: string | null) {
   if (!value) return "Date not set";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Date not set" : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return Number.isNaN(date.getTime())
+    ? "Date not set"
+    : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(date);
 }
 
 export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
@@ -134,7 +136,7 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                       <h3>{formatDisplayText(exam.title)}</h3>
                       <p>{exam.subject} · {formatDisplayText(exam.chapter)}</p>
                       <span>
-                        <CalendarDays size={13} /> {exam.startsAt ? `Starts ${dateLabel(exam.startsAt)}` : "Schedule: open"} · {Math.round(exam.durationSeconds / 60)} minutes
+                        <CalendarDays size={13} /> {exam.startsAt ? `Starts ${dateLabel(exam.startsAt)} · Access closes ${dateLabel(exam.endsAt)}` : "Schedule: open"} · {Math.round(exam.durationSeconds / 60)}-minute attempt
                       </span>
                     </div>
                     <div className="student-exam-action">

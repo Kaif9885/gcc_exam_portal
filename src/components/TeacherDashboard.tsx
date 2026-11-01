@@ -14,10 +14,11 @@ import {
   Download,
   BookOpen,
   Clock3,
+  Pencil,
 } from "lucide-react";
-import { PaperBuilder } from "@/components/PaperBuilder";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
+import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 import { formatDisplayText } from "@/lib/format-display";
 
 type TeacherTab = "results" | "papers" | "sessions" | "students";
@@ -51,10 +52,13 @@ type PaperRow = {
   title: string;
   subject: string;
   chapterName: string;
+  academicSession: string;
   durationSeconds: number;
   maxMarks: number;
   passingMarks: number;
   published: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
   questionCount: number;
   groups: { slug: string; name: string }[];
 };
@@ -99,12 +103,12 @@ export function TeacherDashboard() {
 
   // Papers State
   const [papers, setPapers] = useState<PaperRow[]>([]);
-  const [showBuilder, setShowBuilder] = useState(false);
 
   // Live Sessions State
   const [sessions, setSessions] = useState<LiveSessionRow[]>([]);
   const [sessionStats, setSessionStats] = useState({ active: 0, submitted: 0, total: 0 });
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [retryGrantingId, setRetryGrantingId] = useState("");
 
   // Students Roster State
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -113,6 +117,13 @@ export function TeacherDashboard() {
 
   const [globalMessage, setGlobalMessage] = useState("");
   const [globalError, setGlobalError] = useState("");
+
+  useEffect(() => {
+    const saved = searchParams.get("examSaved");
+    if (!saved) return;
+    setGlobalMessage(saved === "updated" ? "Exam updated successfully." : "Exam created and saved successfully.");
+    router.replace("/teacher?tab=papers");
+  }, [router, searchParams]);
 
   const switchTab = (nextTab: TeacherTab) => {
     setTab(nextTab);
@@ -180,6 +191,24 @@ export function TeacherDashboard() {
       setSessionsLoading(false);
     }
   }, []);
+
+  async function grantAnotherAttempt(attemptId: string) {
+    if (!window.confirm("Grant this student one more attempt? Their locked answers will be cleared when they start the retry.")) return;
+    setRetryGrantingId(attemptId);
+    setGlobalError("");
+    setGlobalMessage("");
+    try {
+      const response = await fetch(`/api/exam-attempts/${encodeURIComponent(attemptId)}/grant`, { method: "POST" });
+      const data = await response.json() as { message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not grant another attempt.");
+      setGlobalMessage(data.message || "Another exam attempt has been granted.");
+      await loadSessions();
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : "Could not grant another attempt.");
+    } finally {
+      setRetryGrantingId("");
+    }
+  }
 
   // Load Students
   const loadStudents = useCallback(async () => {
@@ -325,7 +354,7 @@ export function TeacherDashboard() {
               onClick={() => switchTab("papers")}
             >
               <FileText size={17} />
-              <span>Question Papers</span>
+              <span>Exams</span>
               {papers.length > 0 && <span className="admin-nav-badge">{papers.length}</span>}
             </button>
 
@@ -588,22 +617,22 @@ export function TeacherDashboard() {
           </section>
         )}
 
-        {/* TAB 2: QUESTION PAPERS */}
+        {/* TAB 2: EXAMS */}
         {tab === "papers" && (
           <section>
             <div className="admin-header">
               <div>
-                <span className="eyebrow">QUESTION BANK & PAPER MANAGEMENT</span>
-                <h1>Examination Question Papers</h1>
-                <p>Create, inspect, and publish examination papers for school cohorts.</p>
+                <span className="eyebrow">EXAM MANAGEMENT</span>
+                <h1>Exams</h1>
+                <p>Create exams, set their start time, and manage class access.</p>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="admin-header-actions">
                 <button
                   className="button button-primary compact-button"
-                  onClick={() => setShowBuilder(!showBuilder)}
+                  onClick={() => router.push("/teacher/exams/new")}
                 >
                   <FileText size={13} />
-                  <span>{showBuilder ? "Close Paper Builder" : "+ Create / Preset Paper"}</span>
+                  <span>+ Create Exam</span>
                 </button>
                 <button className="button button-secondary compact-button" onClick={() => void loadPapers()}>
                   <RefreshCw size={13} />
@@ -612,36 +641,24 @@ export function TeacherDashboard() {
               </div>
             </div>
 
-            {/* Paper Builder Drawer */}
-            {showBuilder && (
-              <div style={{ marginBottom: 24 }}>
-                <PaperBuilder
-                  onCreated={() => {
-                    void loadPapers();
-                    setGlobalMessage("Question paper created and saved successfully.");
-                    setShowBuilder(false);
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Papers List */}
+            {/* Exams List */}
             <div className="paper-list">
               <div className="results-toolbar">
                 <div>
-                  <h3>Authorized Question Papers</h3>
-                  <p>All active question papers stored in the school database.</p>
+                  <h3>Scheduled Exams</h3>
+                  <p>Exam dates, access windows, and class assignments.</p>
                 </div>
-                <span>{papers.length} papers</span>
+                <span>{papers.length} exams</span>
               </div>
 
               {papers.length ? (
-                papers.map(paper => (
-                  <div className="paper-list-item" key={paper.id}>
+                papers.map(paper => {
+                  const scheduleStatus = getExamScheduleStatus(paper.published, paper.startsAt, paper.endsAt);
+                  return <div className="paper-list-item" key={paper.id}>
                     <article className="paper-row">
                       <div>
-                        <span className={`result-status ${paper.published ? "passed" : "failed"}`}>
-                          {paper.published ? "Published" : "Draft"}
+                        <span className={`result-status ${scheduleStatus.className}`}>
+                          {scheduleStatus.label}
                         </span>
                         <h4>{formatDisplayText(paper.title)}</h4>
                         <p>{paper.subject} · {formatDisplayText(paper.chapterName)}</p>
@@ -649,18 +666,24 @@ export function TeacherDashboard() {
                           Classes: {paper.groups.map(g => g.name).join(" + ") || "All"} · {paper.maxMarks} marks ·{" "}
                           {paper.questionCount} questions · {Math.round(paper.durationSeconds / 60)} minutes
                         </small>
+                        <small className="paper-schedule-detail">
+                          Starts: {formatExamDateTime(paper.startsAt)} · Access closes: {formatExamDateTime(paper.endsAt)}
+                        </small>
                       </div>
                       <div className="paper-result-status">
-                        Passing: {paper.passingMarks} marks
+                        <span>Passing: {paper.passingMarks} marks</span>
+                        <button className="button button-secondary compact-button" type="button" onClick={() => router.push(`/teacher/exams/${encodeURIComponent(paper.id)}`)}>
+                          <Pencil size={13} /> Edit
+                        </button>
                       </div>
                     </article>
                     <TeacherPaperQuestions examId={paper.id} />
-                  </div>
-                ))
+                  </div>;
+                })
               ) : (
                 <div className="empty-exams">
                   <BookOpen size={18} />
-                  <span>No question papers loaded.</span>
+                  <span>No exams have been created yet.</span>
                 </div>
               )}
             </div>
@@ -723,6 +746,7 @@ export function TeacherDashboard() {
                         <th>WARNINGS</th>
                         <th>STARTED AT</th>
                         <th>EXPIRES AT</th>
+                        <th>ACTION</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -744,7 +768,7 @@ export function TeacherDashboard() {
                               className={`result-status ${
                                 s.status === "in_progress"
                                   ? "pending"
-                                  : s.status === "submitted"
+                                  : s.status === "submitted" || s.status === "retry_allowed"
                                   ? "passed"
                                   : "failed"
                               }`}
@@ -762,6 +786,18 @@ export function TeacherDashboard() {
                           </td>
                           <td>
                             <small>{new Date(s.expiresAt).toLocaleTimeString()}</small>
+                          </td>
+                          <td>
+                            {s.status === "locked" && (
+                              <button
+                                className="button button-secondary compact-button"
+                                type="button"
+                                onClick={() => void grantAnotherAttempt(s.id)}
+                                disabled={Boolean(retryGrantingId)}
+                              >
+                                {retryGrantingId === s.id ? "Granting…" : "Grant reattempt"}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -877,4 +913,3 @@ export function TeacherDashboard() {
     </div>
   );
 }
-
