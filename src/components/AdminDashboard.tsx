@@ -509,7 +509,7 @@ export function AdminDashboard() {
               onClick={() => switchTab("students")}
             >
               <Users size={17} />
-              <span>Student Roster</span>
+              <span>Student List</span>
               {students.length > 0 && <span className="admin-nav-badge">{students.length}</span>}
             </button>
 
@@ -518,7 +518,7 @@ export function AdminDashboard() {
               onClick={() => switchTab("walkin")}
             >
               <UserPlus size={17} />
-              <span>Walk-in Student Exam</span>
+              <span>Add New Student to Examination</span>
             </button>
           </nav>
         </div>
@@ -1112,8 +1112,8 @@ export function AdminDashboard() {
           <section>
             <div className="admin-header">
               <div>
-                <span className="eyebrow">NEW OR WALK-IN STUDENT</span>
-                <h1>Start an Exam for a Student</h1>
+                <span className="eyebrow">ADD NEW STUDENT TO EXAMINATION</span>
+                <h1>Add New Student to Examination</h1>
                 <p>Enter the student details, class and an exam that is open now.</p>
               </div>
               <div className="admin-header-actions">
@@ -1165,7 +1165,7 @@ export function AdminDashboard() {
             <div className="admin-header">
               <div>
                 <span className="eyebrow">ENROLLED STUDENT DIRECTORY</span>
-                <h1>Student Roster & Class Cohorts</h1>
+                <h1>Student List & Class Cohorts</h1>
                 <p>Inspect all registered students by class with their assigned roll numbers.</p>
               </div>
               <div className="admin-header-actions">
