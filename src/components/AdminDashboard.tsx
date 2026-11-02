@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -17,13 +17,14 @@ import {
   Clock3,
   BookOpen,
   Pencil,
+  UserPlus,
 } from "lucide-react";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
 import { formatDisplayText } from "@/lib/format-display";
 import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 
-type AdminTab = "results" | "payments" | "papers" | "sessions" | "students";
+type AdminTab = "results" | "payments" | "papers" | "sessions" | "students" | "walkin";
 
 type AdminResult = {
   id: string;
@@ -108,6 +109,11 @@ type StudentRow = {
   active: boolean;
 };
 
+type WalkInOptions = {
+  groups: { id: string; slug: string; name: string }[];
+  exams: { id: string; title: string; subject: string; groups: { id: string; slug: string; name: string }[] }[];
+};
+
 export function AdminDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -142,6 +148,15 @@ export function AdminDashboard() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
   const [studentClassFilter, setStudentClassFilter] = useState("all");
+
+  // Walk-in student exam state
+  const [walkInOptions, setWalkInOptions] = useState<WalkInOptions>({ groups: [], exams: [] });
+  const [walkInName, setWalkInName] = useState("");
+  const [walkInRoll, setWalkInRoll] = useState("");
+  const [walkInGroupId, setWalkInGroupId] = useState("");
+  const [walkInExamId, setWalkInExamId] = useState("");
+  const [walkInLoading, setWalkInLoading] = useState(false);
+  const [walkInBusy, setWalkInBusy] = useState(false);
 
   const [globalMessage, setGlobalMessage] = useState("");
   const [globalError, setGlobalError] = useState("");
@@ -258,6 +273,45 @@ export function AdminDashboard() {
     }
   }, []);
 
+  const loadWalkInOptions = useCallback(async () => {
+    setWalkInLoading(true);
+    try {
+      const response = await fetch("/api/admin/walk-in-exam", { cache: "no-store" });
+      const data = await response.json();
+      if (response.status === 401) { router.replace("/admin/login"); return; }
+      if (!response.ok) throw new Error(data.error || "Could not load available examinations.");
+      const options = data as WalkInOptions;
+      setWalkInOptions(options);
+      setWalkInGroupId(current => options.groups.some(group => group.id === current) ? current : "");
+      setWalkInExamId(current => options.exams.some(exam => exam.id === current) ? current : "");
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : "Could not load available examinations.");
+    } finally {
+      setWalkInLoading(false);
+    }
+  }, [router]);
+
+  async function startWalkInExam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWalkInBusy(true);
+    setGlobalError("");
+    setGlobalMessage("");
+    try {
+      const response = await fetch("/api/admin/walk-in-exam", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName: walkInName, rollNumber: walkInRoll, groupId: walkInGroupId, examId: walkInExamId }),
+      });
+      const data = await response.json() as { error?: string; paymentUrl?: string };
+      if (response.status === 401) { router.replace("/admin/login"); return; }
+      if (!response.ok || !data.paymentUrl) throw new Error(data.error || "Could not prepare this student.");
+      window.location.assign(data.paymentUrl);
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : "Could not prepare this student.");
+      setWalkInBusy(false);
+    }
+  }
+
   // Load each tab's data only when the user opens that tab.
   const loadedTabs = useRef(new Set<AdminTab>());
   useEffect(() => {
@@ -268,7 +322,8 @@ export function AdminDashboard() {
     if (tab === "papers") void loadPapers();
     if (tab === "sessions") void loadSessions();
     if (tab === "students") void loadStudents();
-  }, [tab, loadResults, loadPayments, loadPapers, loadSessions, loadStudents]);
+    if (tab === "walkin") void loadWalkInOptions();
+  }, [tab, loadResults, loadPayments, loadPapers, loadSessions, loadStudents, loadWalkInOptions]);
 
   // Periodic refresh for live sessions if on sessions tab
   useEffect(() => {
@@ -456,6 +511,14 @@ export function AdminDashboard() {
               <Users size={17} />
               <span>Student Roster</span>
               {students.length > 0 && <span className="admin-nav-badge">{students.length}</span>}
+            </button>
+
+            <button
+              className={`admin-nav-item ${tab === "walkin" ? "active" : ""}`}
+              onClick={() => switchTab("walkin")}
+            >
+              <UserPlus size={17} />
+              <span>Walk-in Student Exam</span>
             </button>
           </nav>
         </div>
@@ -1042,6 +1105,57 @@ export function AdminDashboard() {
                 </div>
               )}
             </div>
+          </section>
+        )}
+
+        {tab === "walkin" && (
+          <section>
+            <div className="admin-header">
+              <div>
+                <span className="eyebrow">NEW OR WALK-IN STUDENT</span>
+                <h1>Start an Exam for a Student</h1>
+                <p>Enter the student details, class and an exam that is open now.</p>
+              </div>
+              <div className="admin-header-actions">
+                <button className="button button-secondary compact-button" type="button" onClick={() => void loadWalkInOptions()} disabled={walkInLoading}>
+                  <RefreshCw size={13} />
+                  <span>{walkInLoading ? "Refreshing…" : "Refresh exams"}</span>
+                </button>
+              </div>
+            </div>
+
+            <form className="walk-in-exam-form" onSubmit={startWalkInExam}>
+              <div className="paper-fields">
+                <div>
+                  <label htmlFor="walk-in-student-name">Student name</label>
+                  <input id="walk-in-student-name" value={walkInName} onChange={event => setWalkInName(event.target.value)} maxLength={120} required placeholder="Enter full name" />
+                </div>
+                <div>
+                  <label htmlFor="walk-in-roll-number">Roll number</label>
+                  <input id="walk-in-roll-number" value={walkInRoll} onChange={event => setWalkInRoll(event.target.value)} maxLength={32} required placeholder="Enter roll number" />
+                </div>
+                <div>
+                  <label htmlFor="walk-in-class">Class</label>
+                  <select id="walk-in-class" value={walkInGroupId} required onChange={event => { setWalkInGroupId(event.target.value); setWalkInExamId(""); }} disabled={walkInLoading || !walkInOptions.groups.length}>
+                    <option value="">Select class</option>
+                    {walkInOptions.groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="walk-in-exam">Open examination</label>
+                  <select id="walk-in-exam" value={walkInExamId} required onChange={event => setWalkInExamId(event.target.value)} disabled={!walkInGroupId || walkInLoading}>
+                    <option value="">Select examination</option>
+                    {walkInOptions.exams.filter(exam => exam.groups.some(group => group.id === walkInGroupId)).map(exam => <option key={exam.id} value={exam.id}>{exam.title} · {exam.subject}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="walk-in-exam-note">This creates a student record in the selected class and opens the normal payment step. The student can then continue to the exam.</p>
+              <button className="button button-primary" type="submit" disabled={walkInBusy || walkInLoading || !walkInOptions.exams.length}>
+                <UserPlus size={15} />
+                {walkInBusy ? "Preparing student…" : "Continue to payment & exam"}
+              </button>
+              {!walkInLoading && !walkInOptions.exams.length && <div className="empty-exams"><Clock3 size={17} /><span>There are no published exams open right now.</span></div>}
+            </form>
           </section>
         )}
 

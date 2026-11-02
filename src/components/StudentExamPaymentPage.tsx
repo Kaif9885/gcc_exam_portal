@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { UPIButton } from '@/components/payment/UPIButton';
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
@@ -19,20 +18,11 @@ export function StudentExamPaymentPage() {
   const [payerName, setPayerName] = useState("");
   const [paidAt, setPaidAt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "online" | null>(null);
+  const [onlinePaymentDone, setOnlinePaymentDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [paymentUpiId, setPaymentUpiId] = useState("");
   const qr = process.env.NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL || "/PHOTO-2026-11-01-21-54-51.jpg";
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/payment-config", { cache: "no-store" })
-      .then(response => response.ok ? response.json() : null)
-      .then(config => { if (active && config) setPaymentUpiId(typeof config.upiId === "string" ? config.upiId : ""); })
-      .catch(() => { if (active) setPaymentUpiId(""); });
-    return () => { active = false; };
-  }, []);
 
   const load = useCallback(async (token?: string) => {
     const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/payment${token ? `?token=${encodeURIComponent(token)}` : ""}`, { cache: "no-store" });
@@ -83,6 +73,7 @@ export function StudentExamPaymentPage() {
 
   async function submitOnline(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!data) return;
     await submitPayment("online", payerName, new Date(paidAt));
   }
 
@@ -113,23 +104,25 @@ export function StudentExamPaymentPage() {
           <>
             <h2>Pay ₹20 to continue</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            <p className="payment-upi-instructions">Choose how you paid the ₹20 examination fee.</p>
-            <div className="exam-payment-qr-panel">
-              <a href={qr} target="_blank" rel="noreferrer" aria-label="Open Md Kaif's UPI payment QR code">
-                <img className="exam-payment-qr-image" src={qr} alt="Md Kaif Paytm UPI payment QR code" />
-              </a>
-              <span>Scan to pay Md Kaif via UPI</span>
-            </div>
+            <p className="payment-upi-instructions">Choose a payment method to continue.</p>
             <div className="payment-method-options" role="group" aria-label="Payment method">
-              <button type="button" className={`button ${paymentMethod === "cash" ? "button-primary" : "button-secondary"}`} onClick={() => setPaymentMethod("cash")}>Cash / Offline</button>
-              <button type="button" className={`button ${paymentMethod === "online" ? "button-primary" : "button-secondary"}`} onClick={() => setPaymentMethod("online")}>Online / UPI</button>
+              <button type="button" className="button button-secondary" disabled={busy} onClick={() => void submitPayment("cash", data.student.fullName, new Date())}>Cash / Offline</button>
+              <button type="button" className={`button ${paymentMethod === "online" ? "button-primary" : "button-secondary"}`} onClick={() => { setPaymentMethod("online"); setOnlinePaymentDone(false); }}>Online Payment</button>
             </div>
             {paymentMethod === "online" && (
               <>
-                <p className="payment-upi-instructions">Complete the ₹20 payment in your UPI app, then enter the payment details below.</p>
-                <div className="exam-payment-upi">
-                  <UPIButton vpa={paymentUpiId} name="Md Kaif" amount={20} className="payment-action" />
+                <p className="payment-upi-instructions">Scan this QR code to pay ₹20.</p>
+                <div className="exam-payment-qr-panel">
+                  <a href={qr} target="_blank" rel="noreferrer" aria-label="Open the online payment QR code">
+                    <img className="exam-payment-qr-image" src={qr} alt="Online payment QR code" />
+                  </a>
+                  <span>Scan to pay online</span>
                 </div>
+                {!onlinePaymentDone && (
+                  <button type="button" className="button button-primary lookup-submit" onClick={() => setOnlinePaymentDone(true)}>
+                    I have paid <ArrowRight size={15} />
+                  </button>
+                )}
               </>
             )}
             {error && <div className="notice warning" role="alert">{error}</div>}
@@ -144,17 +137,7 @@ export function StudentExamPaymentPage() {
                   </button>
                 </div>
               </div>
-            ) : paymentMethod === "cash" ? (
-              <button
-                className="button button-primary lookup-submit"
-                type="button"
-                disabled={busy}
-                onClick={() => void submitPayment("cash", data.student.fullName, new Date())}
-              >
-                {busy ? "Opening exam…" : "Open exam"}
-                <ArrowRight size={15} />
-              </button>
-            ) : paymentMethod === "online" ? (
+            ) : paymentMethod === "online" && onlinePaymentDone ? (
               <form className="lookup-form payment-confirm-form" onSubmit={submitOnline}>
                 <label htmlFor="exam-payer-name">Payer account name</label>
                 <input
@@ -178,7 +161,7 @@ export function StudentExamPaymentPage() {
                   <ArrowRight size={15} />
                 </button>
               </form>
-            ) : <p className="exam-cash-instructions">Select Cash / Offline or Online / UPI above to continue.</p>}
+            ) : paymentMethod !== "online" ? <p className="exam-cash-instructions">Cash / Offline opens the exam directly. Choose Online Payment to scan the QR code.</p> : null}
           </>
         )}
         <footer className="lookup-footer">
