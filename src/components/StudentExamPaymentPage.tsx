@@ -103,13 +103,17 @@ export function StudentExamPaymentPage() {
           <div className="notice warning" role="alert">{error}</div>
         ) : data && (
           <>
-            <h2>Pay ₹20 to continue</h2>
+            <h2>{paymentMethod === "online" && onlinePaymentDone ? "Online Payment Details" : "Pay ₹20 to continue"}</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            <p className="payment-upi-instructions">Choose a payment method to continue.</p>
-            <div className="payment-method-options" role="group" aria-label="Payment method">
-              <button type="button" className="button button-secondary" disabled={busy} onClick={() => void submitPayment("cash", data.student.fullName, new Date())}>Cash / Offline</button>
-              <button type="button" className="button button-secondary" disabled={busy} onClick={() => { setPaymentMethod("online"); setOnlinePaymentDone(false); setOnlineScannerOpen(true); }}>Online Payment</button>
-            </div>
+            {paymentMethod === null && (
+              <>
+                <p className="payment-upi-instructions">Choose a payment method to continue.</p>
+                <div className="payment-method-options" role="group" aria-label="Payment method">
+                  <button type="button" className="button payment-method-cash" disabled={busy} onClick={() => void submitPayment("cash", data.student.fullName, new Date())}>Cash / Offline</button>
+                  <button type="button" className="button payment-method-online" disabled={busy} onClick={() => { setPaymentMethod("online"); setOnlinePaymentDone(false); setOnlineScannerOpen(true); }}>Online Payment</button>
+                </div>
+              </>
+            )}
             {paymentMethod === "online" && onlineScannerOpen && (
               <div className="online-payment-modal-backdrop" role="presentation">
                 <section className="online-payment-modal" role="dialog" aria-modal="true" aria-labelledby="online-payment-title">
@@ -143,30 +147,33 @@ export function StudentExamPaymentPage() {
                 </div>
               </div>
             ) : paymentMethod === "online" && onlinePaymentDone ? (
-              <form className="lookup-form payment-confirm-form" onSubmit={submitOnline}>
-                <label htmlFor="exam-payer-name">Payer account name</label>
-                <input
-                  id="exam-payer-name"
-                  value={payerName}
-                  onChange={event => setPayerName(event.target.value)}
-                  placeholder="Enter name shown on payment"
-                  required
-                  maxLength={120}
-                />
-                <label htmlFor="exam-paid-at">Payment date and time</label>
-                <input
-                  id="exam-paid-at"
-                  type="datetime-local"
-                  value={paidAt}
-                  onChange={event => setPaidAt(event.target.value)}
-                  required
-                />
-                <button className="button button-primary lookup-submit" disabled={busy || !payerName.trim() || !paidAt}>
-                  {busy ? "Opening questions…" : "Submit payment details & open exam"}
-                  <ArrowRight size={15} />
-                </button>
-              </form>
-            ) : paymentMethod !== "online" ? <p className="exam-cash-instructions">Cash / Offline opens the exam directly. Choose Online Payment to scan the QR code.</p> : null}
+              <section className="online-payment-details">
+                <p className="payment-upi-instructions">Enter the payer name and payment time to continue to the exam.</p>
+                <form className="lookup-form payment-confirm-form" onSubmit={submitOnline}>
+                  <label htmlFor="exam-payer-name">Payer account name</label>
+                  <input
+                    id="exam-payer-name"
+                    value={payerName}
+                    onChange={event => setPayerName(event.target.value)}
+                    placeholder="Enter name shown on payment"
+                    required
+                    maxLength={120}
+                  />
+                  <label htmlFor="exam-paid-at">Payment date and time</label>
+                  <input
+                    id="exam-paid-at"
+                    type="datetime-local"
+                    value={paidAt}
+                    onChange={event => setPaidAt(event.target.value)}
+                    required
+                  />
+                  <button className="button button-primary lookup-submit" disabled={busy || !payerName.trim() || !paidAt}>
+                    {busy ? "Opening questions…" : "Submit payment details & open exam"}
+                    <ArrowRight size={15} />
+                  </button>
+                </form>
+              </section>
+            ) : null}
           </>
         )}
         <footer className="lookup-footer">
