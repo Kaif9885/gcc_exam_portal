@@ -231,3 +231,7 @@
 
 .walk-in-exam-form{display:grid;gap:15px;max-width:760px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:22px}.walk-in-exam-form .button{width:max-content;padding:0 16px}.walk-in-exam-note{margin:0;padding:11px 13px;border:1px solid #e4eafa;border-radius:7px;background:#f4f7ff;color:#627492;font-size:10px;line-height:1.6}
 @media(max-width:700px){.walk-in-exam-form{padding:15px}.walk-in-exam-form .button{width:100%}}
+.exam-live-badge{display:inline-flex;align-items:center;gap:5px;background:#eaf7f0;color:#258453;letter-spacing:.5px}.exam-live-badge:before{content:"";width:6px;height:6px;border-radius:50%;background:#22a565;box-shadow:0 0 0 3px #22a56524}
+
+.online-payment-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:#10182899}.online-payment-modal{width:min(100%,420px);max-height:min(90vh,760px);overflow:auto;padding:24px;background:#fff;border:1px solid #e1e8f2;border-radius:14px;box-shadow:0 24px 70px #10182840;text-align:center}.online-payment-modal h3{margin:0 0 7px;color:#17243a;font-size:19px}.online-payment-modal>p{margin:0;color:#64748b;font-size:12px}.online-payment-modal .exam-payment-qr-panel{margin:16px auto}.online-payment-modal>.button{width:100%;padding:0 14px}.online-payment-back{margin-top:12px;border:0;background:transparent;color:#52627b;font-size:11px;font-weight:700;cursor:pointer}
+@media(max-width:520px){.online-payment-modal-backdrop{padding:12px}.online-payment-modal{padding:18px}}

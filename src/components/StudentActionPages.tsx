@@ -129,6 +129,7 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                 const blocked = ["submitted", "locked", "invalid", "closed"].includes(exam.status);
                 const scheduled = exam.status === "scheduled";
                 const ongoing = exam.status === "in_progress";
+                const statusLabel = exam.status === "available" ? "LIVE" : exam.status.replaceAll("_", " ");
                 return (
                   <article className="student-record-card" key={exam.id}>
                     <div className="student-record-icon"><BookOpenCheck size={19} /></div>
@@ -140,7 +141,7 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                       </span>
                     </div>
                     <div className="student-exam-action">
-                      <span className={`result-status status-${exam.status}`}>{exam.status.replaceAll("_", " ")}</span>
+                      <span className={`result-status status-${exam.status} ${exam.status === "available" ? "exam-live-badge" : ""}`}>{statusLabel}</span>
                       <button
                         className="button button-primary"
                         disabled={blocked || scheduled}

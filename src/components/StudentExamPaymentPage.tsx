@@ -19,6 +19,7 @@ export function StudentExamPaymentPage() {
   const [paidAt, setPaidAt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "online" | null>(null);
   const [onlinePaymentDone, setOnlinePaymentDone] = useState(false);
+  const [onlineScannerOpen, setOnlineScannerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -107,23 +108,27 @@ export function StudentExamPaymentPage() {
             <p className="payment-upi-instructions">Choose a payment method to continue.</p>
             <div className="payment-method-options" role="group" aria-label="Payment method">
               <button type="button" className="button button-secondary" disabled={busy} onClick={() => void submitPayment("cash", data.student.fullName, new Date())}>Cash / Offline</button>
-              <button type="button" className={`button ${paymentMethod === "online" ? "button-primary" : "button-secondary"}`} onClick={() => { setPaymentMethod("online"); setOnlinePaymentDone(false); }}>Online Payment</button>
+              <button type="button" className="button button-secondary" disabled={busy} onClick={() => { setPaymentMethod("online"); setOnlinePaymentDone(false); setOnlineScannerOpen(true); }}>Online Payment</button>
             </div>
-            {paymentMethod === "online" && (
-              <>
-                <p className="payment-upi-instructions">Scan this QR code to pay ₹20.</p>
-                <div className="exam-payment-qr-panel">
-                  <a href={qr} target="_blank" rel="noreferrer" aria-label="Open the online payment QR code">
-                    <img className="exam-payment-qr-image" src={qr} alt="Online payment QR code" />
-                  </a>
-                  <span>Scan to pay online</span>
-                </div>
-                {!onlinePaymentDone && (
-                  <button type="button" className="button button-primary lookup-submit" onClick={() => setOnlinePaymentDone(true)}>
+            {paymentMethod === "online" && onlineScannerOpen && (
+              <div className="online-payment-modal-backdrop" role="presentation">
+                <section className="online-payment-modal" role="dialog" aria-modal="true" aria-labelledby="online-payment-title">
+                  <h3 id="online-payment-title">Online Payment</h3>
+                  <p>Scan this QR code to pay ₹20.</p>
+                  <div className="exam-payment-qr-panel">
+                    <a href={qr} target="_blank" rel="noreferrer" aria-label="Open the online payment QR code">
+                      <img className="exam-payment-qr-image" src={qr} alt="Online payment QR code" />
+                    </a>
+                    <span>Scan to pay online</span>
+                  </div>
+                  <button type="button" className="button button-primary" onClick={() => { setOnlinePaymentDone(true); setOnlineScannerOpen(false); }}>
                     I have paid <ArrowRight size={15} />
                   </button>
-                )}
-              </>
+                  <button type="button" className="online-payment-back" onClick={() => { setPaymentMethod(null); setOnlineScannerOpen(false); }}>
+                    Back to payment options
+                  </button>
+                </section>
+              </div>
             )}
             {error && <div className="notice warning" role="alert">{error}</div>}
             {data.payment?.status === "verified" || data.payment?.status === "pending" ? (
