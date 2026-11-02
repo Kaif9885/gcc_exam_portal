@@ -31,6 +31,8 @@ export function StudentDashboard() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const activeExamsCount = data?.exams.filter(exam => ["available", "in_progress"].includes(exam.status)).length ?? 0;
+
   async function signOut() {
     await fetch("/api/student/session", { method: "DELETE" });
     router.replace("/student");
@@ -105,7 +107,7 @@ export function StudentDashboard() {
                 onClick={() => router.push("/student/exams")}
               >
                 <BookOpenCheck size={17} />
-                <span>Attend exam</span>
+                <span>Attend exam ({activeExamsCount})</span>
                 <ArrowRight size={15} />
               </button>
 
