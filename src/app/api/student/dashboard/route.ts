@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       let status = attempt?.status === "retry_allowed" ? "available" : attempt?.status ?? "available";
       if (attempt?.status !== "submitted" && startsAt !== null && now < startsAt) status = "scheduled";
       if (attempt?.status !== "submitted" && endsAt !== null && now >= endsAt) status = "closed";
+      if (attempt?.status === "in_progress" && Number(attempt.warning_count ?? 0) >= 3) status = "locked";
       return {
         id, title: String(exam.title), subject: String(exam.subject), chapter: String(exam.chapter_name ?? ""),
         durationSeconds: Number(exam.duration_seconds ?? 0), status,

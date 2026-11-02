@@ -42,6 +42,10 @@ export async function POST(request: NextRequest, context: Context) {
     const attempts = db.collection("examAttempts");
     let attempt = await attempts.findOne({ exam_id: examId, student_id: studentId });
     let restarted = false;
+    if (attempt?.status === "in_progress" && Number(attempt.warning_count ?? 0) >= 3) {
+      await attempts.updateOne({ _id: attempt._id, status: "in_progress" }, { $set: { status: "locked" } });
+      return NextResponse.json({ error: "This exam attempt is locked after three warnings. It cannot restart from question 1. Ask your administrator for help." }, { status: 403 });
+    }
     if (attempt && attempt.status !== "in_progress") {
       if (attempt.status === "locked") {
         return NextResponse.json({ error: "This exam attempt is locked. Ask your teacher or administrator to grant another attempt." }, { status: 403 });

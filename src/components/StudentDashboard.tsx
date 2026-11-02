@@ -36,8 +36,6 @@ export function StudentDashboard() {
     router.replace("/student");
   }
 
-  const activeExamsCount = data?.exams.filter(exam => !["submitted", "locked", "invalid", "closed"].includes(exam.status)).length ?? 0;
-
   return (
     <main className="public-result-page">
       <section className="result-lookup-card teacher-entry-card" aria-label="Student dashboard">
@@ -107,7 +105,7 @@ export function StudentDashboard() {
                 onClick={() => router.push("/student/exams")}
               >
                 <BookOpenCheck size={17} />
-                <span>Attend exam ({activeExamsCount})</span>
+                <span>Attend exam</span>
                 <ArrowRight size={15} />
               </button>
 
