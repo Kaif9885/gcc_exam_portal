@@ -105,6 +105,7 @@ export function TeacherDashboard() {
   const initialTab = (searchParams.get("tab") as TeacherTab) || "results";
   const [tab, setTab] = useState<TeacherTab>(initialTab);
   const [teacherName, setTeacherName] = useState("Teacher");
+  const [teacherSessionReady, setTeacherSessionReady] = useState(false);
   const monitorViewerId = useRef("");
 
   // Results State
@@ -155,9 +156,42 @@ export function TeacherDashboard() {
         }
         const data = await res.json();
         if (data.teacherName) setTeacherName(data.teacherName);
+        setTeacherSessionReady(true);
       })
       .catch(() => undefined);
   }, [router]);
+
+  // Keep the teacher roster current across every dashboard tab, not only the live monitor.
+  useEffect(() => {
+    if (!teacherSessionReady) return;
+    let active = true;
+    const viewerId = monitorViewerId.current || (monitorViewerId.current = crypto.randomUUID());
+    const refreshPresence = async () => {
+      try {
+        const response = await fetch("/api/teacher/monitor-presence", {
+          method: "POST",
+          headers: { "x-monitor-viewer-id": viewerId },
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = await response.json() as { viewers?: MonitorViewer[] };
+        if (active) setMonitorViewers(data.viewers ?? []);
+      } catch {
+        // A later heartbeat will recover if the network is briefly unavailable.
+      }
+    };
+    void refreshPresence();
+    const heartbeat = window.setInterval(() => void refreshPresence(), 12000);
+    return () => {
+      active = false;
+      window.clearInterval(heartbeat);
+      void fetch("/api/teacher/monitor-presence", {
+        method: "DELETE",
+        headers: { "x-monitor-viewer-id": viewerId },
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+  }, [teacherSessionReady]);
 
   // Load Results
   const loadResults = useCallback(async () => {
@@ -195,22 +229,11 @@ export function TeacherDashboard() {
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true);
     try {
-      const viewerId = monitorViewerId.current || (monitorViewerId.current = crypto.randomUUID());
-      const [res, presenceResponse] = await Promise.all([
-        fetch("/api/teacher/sessions", { cache: "no-store" }),
-        fetch("/api/teacher/monitor-presence", {
-          method: "POST",
-          headers: { "x-monitor-viewer-id": viewerId },
-        }),
-      ]);
+      const res = await fetch("/api/teacher/sessions", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load live sessions.");
       setSessions(data.sessions || []);
       if (data.stats) setSessionStats(data.stats);
-      if (presenceResponse.ok) {
-        const presenceData = await presenceResponse.json() as { viewers?: MonitorViewer[] };
-        setMonitorViewers(presenceData.viewers ?? []);
-      }
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Error loading sessions.");
     } finally {
@@ -269,20 +292,19 @@ export function TeacherDashboard() {
     return () => {
       window.clearInterval(interval);
       window.clearInterval(clock);
-      const viewerId = monitorViewerId.current;
-      if (viewerId) {
-        void fetch("/api/teacher/monitor-presence", {
-          method: "DELETE",
-          headers: { "x-monitor-viewer-id": viewerId },
-          keepalive: true,
-        }).catch(() => undefined);
-      }
     };
   }, [tab, loadSessions]);
 
   // Logout handler
   async function logout() {
     try {
+      const viewerId = monitorViewerId.current;
+      if (viewerId) {
+        await fetch("/api/teacher/monitor-presence", {
+          method: "DELETE",
+          headers: { "x-monitor-viewer-id": viewerId },
+        });
+      }
       await fetch("/api/teacher/logout", { method: "POST" });
     } finally {
       router.replace("/teacher/login");
@@ -437,6 +459,15 @@ export function TeacherDashboard() {
 
       {/* Main Content Area */}
       <main className="admin-main">
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", marginBottom: 16, border: "1px solid #bfdbfe", borderRadius: 12, background: "#eff6ff", color: "#1e3a8a" }}>
+          <Users size={18} style={{ flex: "0 0 auto", marginTop: 2 }} />
+          <div>
+            <b>Teachers logged in now ({monitorViewers.length})</b>
+            <div style={{ marginTop: 3, fontSize: 14 }}>
+              {monitorViewers.length ? monitorViewers.map(viewer => viewer.name).join(", ") : "Checking active teachers…"}
+            </div>
+          </div>
+        </div>
         {globalError && (
           <div className="notice warning" role="alert" style={{ marginBottom: 16 }}>
             {globalError}
