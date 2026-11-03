@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
@@ -83,7 +84,7 @@ export function StudentExamPaymentPage() {
       <section className="result-lookup-card exam-entry-card" aria-label="Exam payment">
         <header className="lookup-heading">
           <div className="lookup-logo">
-            <img src="https://gcc-result-out.onrender.com/static/logo.jpeg" alt="Glorious Coaching Centre logo" width={64} height={64} />
+            <Image src="https://gcc-result-out.onrender.com/static/logo.jpeg" alt="Glorious Coaching Centre logo" width={64} height={64} unoptimized />
             <span>Estd. 2011</span>
           </div>
           <div>
@@ -121,7 +122,7 @@ export function StudentExamPaymentPage() {
                   <p>Scan this QR code to pay ₹20.</p>
                   <div className="exam-payment-qr-panel">
                     <a href={qr} target="_blank" rel="noreferrer" aria-label="Open the online payment QR code">
-                      <img className="exam-payment-qr-image" src={qr} alt="Online payment QR code" />
+                      <Image className="exam-payment-qr-image" src={qr} alt="Online payment QR code" width={220} height={220} unoptimized />
                     </a>
                     <span>Scan to pay online</span>
                   </div>

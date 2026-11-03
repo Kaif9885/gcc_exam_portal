@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock3, Download, GraduationCap, Wifi } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
 import { MathText } from "@/components/MathText";
 import { formatOptionLabel } from "@/lib/format-option-label";

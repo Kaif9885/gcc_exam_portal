@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, GraduationCap, LockKeyhole } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 
 const classes = [
   ["Class 8", "class-8"], ["Class 9", "class-9"], ["Class 10 Boys", "class-10-boys"],

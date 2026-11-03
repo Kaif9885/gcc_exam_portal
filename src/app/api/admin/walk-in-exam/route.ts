@@ -4,9 +4,10 @@ import { getMongoDb } from "@/lib/mongodb";
 import { getAdminSession } from "@/lib/server/admin-session";
 import { createStudentSession, studentSessionCookieName, studentSessionCookieOptions } from "@/lib/server/student-session";
 
-function isExamOpen(exam: { starts_at?: Date | string | null; ends_at?: Date | string | null }, now: Date) {
-  const startsAt = exam.starts_at ? new Date(exam.starts_at).getTime() : null;
-  const endsAt = exam.ends_at ? new Date(exam.ends_at).getTime() : null;
+function isExamOpen(exam: unknown, now: Date) {
+  const schedule = exam as { starts_at?: unknown; ends_at?: unknown };
+  const startsAt = schedule.starts_at ? new Date(String(schedule.starts_at)).getTime() : null;
+  const endsAt = schedule.ends_at ? new Date(String(schedule.ends_at)).getTime() : null;
   return (startsAt === null || now.getTime() >= startsAt) && (endsAt === null || now.getTime() < endsAt);
 }
 

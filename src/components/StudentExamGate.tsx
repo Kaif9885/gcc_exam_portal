@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { UPIButton } from '@/components/payment/UPIButton';
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, GraduationCap, LockKeyhole, Smartphone } from "lucide-react";
 import { formatDisplayText } from "@/lib/format-display";
