@@ -87,12 +87,25 @@ type StudentRow = {
   active: boolean;
 };
 
+type MonitorViewer = { name: string; lastSeenAt: string };
+
+function formatSessionCountdown(expiresAt: string, now: number) {
+  const totalSeconds = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export function TeacherDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as TeacherTab) || "results";
   const [tab, setTab] = useState<TeacherTab>(initialTab);
   const [teacherName, setTeacherName] = useState("Teacher");
+  const monitorViewerId = useRef("");
 
   // Results State
   const [results, setResults] = useState<TeacherResult[]>([]);
@@ -108,6 +121,8 @@ export function TeacherDashboard() {
   const [sessions, setSessions] = useState<LiveSessionRow[]>([]);
   const [sessionStats, setSessionStats] = useState({ active: 0, submitted: 0, total: 0 });
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [monitorViewers, setMonitorViewers] = useState<MonitorViewer[]>([]);
+  const [monitorNow, setMonitorNow] = useState(() => Date.now());
   const [retryGrantingId, setRetryGrantingId] = useState("");
 
   // Students Roster State
@@ -180,11 +195,22 @@ export function TeacherDashboard() {
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true);
     try {
-      const res = await fetch("/api/teacher/sessions", { cache: "no-store" });
+      const viewerId = monitorViewerId.current || (monitorViewerId.current = crypto.randomUUID());
+      const [res, presenceResponse] = await Promise.all([
+        fetch("/api/teacher/sessions", { cache: "no-store" }),
+        fetch("/api/teacher/monitor-presence", {
+          method: "POST",
+          headers: { "x-monitor-viewer-id": viewerId },
+        }),
+      ]);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load live sessions.");
       setSessions(data.sessions || []);
       if (data.stats) setSessionStats(data.stats);
+      if (presenceResponse.ok) {
+        const presenceData = await presenceResponse.json() as { viewers?: MonitorViewer[] };
+        setMonitorViewers(presenceData.viewers ?? []);
+      }
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Error loading sessions.");
     } finally {
@@ -229,17 +255,29 @@ export function TeacherDashboard() {
     loadedTabs.current.add(tab);
     if (tab === "results") void loadResults();
     if (tab === "papers") void loadPapers();
-    if (tab === "sessions") void loadSessions();
     if (tab === "students") void loadStudents();
   }, [tab, loadResults, loadPapers, loadSessions, loadStudents]);
 
   // Periodic refresh for live sessions
   useEffect(() => {
     if (tab !== "sessions") return;
+    void loadSessions();
     const interval = window.setInterval(() => {
       void loadSessions();
     }, 12000);
-    return () => window.clearInterval(interval);
+    const clock = window.setInterval(() => setMonitorNow(Date.now()), 1000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearInterval(clock);
+      const viewerId = monitorViewerId.current;
+      if (viewerId) {
+        void fetch("/api/teacher/monitor-presence", {
+          method: "DELETE",
+          headers: { "x-monitor-viewer-id": viewerId },
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    };
   }, [tab, loadSessions]);
 
   // Logout handler
@@ -729,7 +767,7 @@ export function TeacherDashboard() {
               <div className="results-toolbar">
                 <div>
                   <h3>Active & Recent Student Sessions</h3>
-                  <p>Auto-refreshes every 12 seconds with Atlas runtime status.</p>
+                  <p>Auto-refreshes every 12 seconds. Teachers viewing now: {monitorViewers.length ? monitorViewers.map(viewer => viewer.name).join(", ") : "updating…"}</p>
                 </div>
                 <span>{sessions.length} sessions</span>
               </div>
@@ -746,6 +784,7 @@ export function TeacherDashboard() {
                         <th>WARNINGS</th>
                         <th>STARTED AT</th>
                         <th>EXPIRES AT</th>
+                        <th>TIME LEFT</th>
                         <th>ACTION</th>
                       </tr>
                     </thead>
@@ -786,6 +825,13 @@ export function TeacherDashboard() {
                           </td>
                           <td>
                             <small>{new Date(s.expiresAt).toLocaleTimeString()}</small>
+                          </td>
+                          <td>
+                            {s.status === "in_progress" ? (
+                              <b className={`session-countdown ${new Date(s.expiresAt).getTime() - monitorNow <= 60_000 ? "urgent" : ""}`}>
+                                {formatSessionCountdown(s.expiresAt, monitorNow)}
+                              </b>
+                            ) : <small>—</small>}
                           </td>
                           <td>
                             {s.status === "locked" && (
