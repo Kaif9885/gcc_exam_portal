@@ -36,6 +36,13 @@ export function StudentExam() {
   const perQuestion = exam?.questions.length ? Math.max(1, Math.floor(exam.exam.durationSeconds / exam.questions.length)) : 45;
   const currentQuestion = exam?.questions[questionIndex];
 
+  useEffect(() => {
+    if (instructionsAccepted || exam) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [instructionsAccepted, exam]);
+
   async function beginExam() {
     if (openingExam) return;
     setError("");
