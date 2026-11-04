@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Clock3,
   BookOpen,
-  Camera,
   Pencil,
   UserPlus,
 } from "lucide-react";
@@ -25,7 +24,7 @@ import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload"
 import { formatDisplayText } from "@/lib/format-display";
 import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 
-type AdminTab = "results" | "payments" | "papers" | "sessions" | "students" | "walkin" | "testcandidate";
+type AdminTab = "results" | "payments" | "papers" | "sessions" | "students" | "walkin";
 
 type AdminResult = {
   id: string;
@@ -160,13 +159,6 @@ export function AdminDashboard() {
   const [walkInExamId, setWalkInExamId] = useState("");
   const [walkInLoading, setWalkInLoading] = useState(false);
   const [walkInBusy, setWalkInBusy] = useState(false);
-
-  // Separate, reusable camera monitoring test student.
-  const [testCandidateName, setTestCandidateName] = useState("");
-  const [testCandidateRoll, setTestCandidateRoll] = useState("");
-  const [testCandidateGroupId, setTestCandidateGroupId] = useState("");
-  const [testCandidateBusy, setTestCandidateBusy] = useState(false);
-  const [testCandidateReady, setTestCandidateReady] = useState<{ fullName: string; rollNumber: string; className: string; studentCode: string } | null>(null);
 
   const [globalMessage, setGlobalMessage] = useState("");
   const [globalError, setGlobalError] = useState("");
@@ -322,32 +314,6 @@ export function AdminDashboard() {
     }
   }
 
-  async function saveTestCandidate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setTestCandidateBusy(true);
-    setGlobalError("");
-    setGlobalMessage("");
-    try {
-      const response = await fetch("/api/admin/test-students", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName: testCandidateName, rollNumber: testCandidateRoll, groupId: testCandidateGroupId }),
-      });
-      const data = await response.json() as { error?: string; existing?: boolean; student?: { fullName: string; rollNumber: string; className: string; studentCode: string } };
-      if (response.status === 401) { router.replace("/admin/login"); return; }
-      if (!response.ok || !data.student) throw new Error(data.error || "Could not save the test student.");
-      setTestCandidateReady(data.student);
-      setTestCandidateName(data.student.fullName);
-      setTestCandidateRoll(data.student.rollNumber);
-      setGlobalMessage(data.existing ? "This test student already exists and is ready to reuse." : "Test student created. You can use this account repeatedly for camera checks.");
-      await loadStudents();
-    } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : "Could not save the test student.");
-    } finally {
-      setTestCandidateBusy(false);
-    }
-  }
-
   // Load each tab's data only when the user opens that tab.
   const loadedTabs = useRef(new Set<AdminTab>());
   useEffect(() => {
@@ -358,7 +324,6 @@ export function AdminDashboard() {
     if (tab === "papers") void loadPapers();
     if (tab === "sessions") void loadSessions();
     if (tab === "students") void loadStudents();
-    if (tab === "testcandidate") void loadStudents();
     if (tab === "walkin") void loadWalkInOptions();
   }, [tab, loadResults, loadPayments, loadPapers, loadSessions, loadStudents, loadWalkInOptions]);
 
@@ -556,13 +521,6 @@ export function AdminDashboard() {
             >
               <UserPlus size={17} />
               <span>Add New Student to Examination</span>
-            </button>
-            <button
-              className={`admin-nav-item ${tab === "testcandidate" ? "active" : ""}`}
-              onClick={() => switchTab("testcandidate")}
-            >
-              <Camera size={17} />
-              <span>Camera Test Student</span>
             </button>
           </nav>
         </div>
@@ -1200,44 +1158,6 @@ export function AdminDashboard() {
                 {walkInBusy ? "Preparing student…" : "Continue to payment & exam"}
               </button>
               {!walkInLoading && !walkInOptions.exams.length && <div className="empty-exams"><Clock3 size={17} /><span>There are no published exams open right now.</span></div>}
-            </form>
-          </section>
-        )}
-
-        {tab === "testcandidate" && (
-          <section>
-            <div className="admin-header">
-              <div>
-                <span className="eyebrow">LIVE CAMERA MONITORING TEST</span>
-                <h1>Camera Test Student</h1>
-                <p>Create one separate student login and reuse it to check live exam video.</p>
-              </div>
-            </div>
-            <form className="walk-in-exam-form" onSubmit={saveTestCandidate}>
-              <div className="paper-fields">
-                <div>
-                  <label htmlFor="test-candidate-name">Test student name</label>
-                  <input id="test-candidate-name" value={testCandidateName} onChange={event => setTestCandidateName(event.target.value)} maxLength={120} required placeholder="For example: Camera Test Student" />
-                </div>
-                <div>
-                  <label htmlFor="test-candidate-roll">Test roll number</label>
-                  <input id="test-candidate-roll" value={testCandidateRoll} onChange={event => setTestCandidateRoll(event.target.value)} maxLength={32} required placeholder="For example: TEST-01" />
-                </div>
-                <div>
-                  <label htmlFor="test-candidate-class">Test class</label>
-                  <select id="test-candidate-class" value={testCandidateGroupId} onChange={event => { setTestCandidateGroupId(event.target.value); setTestCandidateReady(null); }} required>
-                    <option value="">Select class</option>
-                    {classGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <p className="walk-in-exam-note">This account is marked TEST and kept separate from regular student accounts. Use Student Login on a second device or browser, enter these details, then start an assigned exam. Test attempts can be repeated without payment.</p>
-              <button className="button button-primary" type="submit" disabled={testCandidateBusy || !classGroups.length}>
-                <UserPlus size={15} />
-                {testCandidateBusy ? "Saving test student…" : "Create / reuse test student"}
-              </button>
-              {testCandidateReady && <div className="notice success" role="status" style={{ marginTop: 14 }}><b>{testCandidateReady.fullName}</b> · {testCandidateReady.className} · Roll {testCandidateReady.rollNumber}<br/><small>Open Student Login on a separate browser or device to run the camera test.</small></div>}
-              {!classGroups.length && <div className="empty-exams"><Users size={17}/><span>Class list is loading or no classes are available.</span></div>}
             </form>
           </section>
         )}

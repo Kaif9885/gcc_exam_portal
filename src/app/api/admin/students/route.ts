@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
         fullName: String(student.full_name ?? "Student"),
         rollNumber: String(student.roll_number ?? "—"),
         studentCode: String(student.student_code ?? "—"),
-        classSlug: String(group?.slug ?? "general"),
-        className: String(group?.name ?? "General Class"),
+        classSlug: String(student.test_class_slug ?? group?.slug ?? "general"),
+        className: student.test_candidate ? `${String(student.test_class_name ?? group?.name ?? "Camera Test")} (TEST)` : String(group?.name ?? "General Class"),
         active: Boolean(student.active ?? true),
         testCandidate: Boolean(student.test_candidate),
       };

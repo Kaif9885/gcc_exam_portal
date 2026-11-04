@@ -1,16 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { getStudentSession } from "@/lib/server/student-session";
+import { CAMERA_TEST_EXAM_ID, ensureCameraTestExam } from "@/lib/server/camera-test-exam";
 
 export async function GET(request: NextRequest) {
   const session = getStudentSession(request);
   if (!session) return NextResponse.json({ error: "Student session required." }, { status: 401 });
   try {
     const db = await getMongoDb();
-    const assignments = await db.collection("examGroupAssignments").find({ exam_group_id: session.groupId }).toArray();
-    const examIds = assignments.map(row => String(row.exam_id));
-    const exams = examIds.length ? await db.collection("exams").find({ _id: { $in: examIds }, published: true }).toArray() : [];
     const student = await db.collection("students").findOne({ exam_group_id: session.groupId, roll_number: session.rollNumber });
+    const testCandidate = Boolean(student?.test_candidate);
+    let exams;
+    if (testCandidate) {
+      await ensureCameraTestExam(db);
+      const testExam = await db.collection("exams").findOne({ _id: CAMERA_TEST_EXAM_ID, published: true });
+      exams = testExam ? [testExam] : [];
+    } else {
+      const assignments = await db.collection("examGroupAssignments").find({ exam_group_id: session.groupId }).toArray();
+      const examIds = assignments.map(row => String(row.exam_id));
+      exams = examIds.length ? await db.collection("exams").find({ _id: { $in: examIds }, published: true }).toArray() : [];
+    }
     const studentId = student ? String(student.id ?? student._id) : "";
     const [attempts, results] = studentId ? await Promise.all([
       db.collection("examAttempts").find({ student_id: studentId }).toArray(),
@@ -25,7 +34,7 @@ export async function GET(request: NextRequest) {
       const result = resultByExam.get(id);
       const startsAt = exam.starts_at ? new Date(exam.starts_at).getTime() : null;
       const endsAt = exam.ends_at ? new Date(exam.ends_at).getTime() : null;
-      let status = student?.test_candidate && attempt?.status !== "in_progress"
+      let status = testCandidate && attempt?.status !== "in_progress"
         ? "available"
         : attempt?.status === "retry_allowed" ? "available" : attempt?.status ?? "available";
       if (attempt?.status !== "submitted" && startsAt !== null && now < startsAt) status = "scheduled";
