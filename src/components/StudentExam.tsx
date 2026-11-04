@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Clock3, Download, GraduationCap, Wifi } from "lu
 import { formatDisplayText } from "@/lib/format-display";
 import { MathText } from "@/components/MathText";
 import { formatOptionLabel } from "@/lib/format-option-label";
+import { CandidateExamCamera } from "@/components/CandidateExamCamera";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
 type ExamState = { restarted?: boolean; student: { fullName: string; rollNumber: string }; attempt: { id: string; expiresAt: string; startedAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
@@ -27,11 +28,14 @@ export function StudentExam() {
   const [submitting, setSubmitting] = useState(false);
   const [openingExam, setOpeningExam] = useState(false);
   const [instructionsAccepted, setInstructionsAccepted] = useState(false);
+  const [cameraConsent, setCameraConsent] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Submission | null>(null);
   const [focusWarningCount, setFocusWarningCount] = useState<number | null>(null);
   const deadline = useRef(0);
   const advancing = useRef(false);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const attemptId = exam?.attempt.id;
   const perQuestion = exam?.questions.length ? Math.max(1, Math.floor(exam.exam.durationSeconds / exam.questions.length)) : 45;
   const currentQuestion = exam?.questions[questionIndex];
@@ -45,15 +49,18 @@ export function StudentExam() {
 
   async function beginExam() {
     if (openingExam) return;
+    if (!cameraConsent) { setError("Please agree to camera monitoring before starting the exam."); return; }
     setError("");
-    setInstructionsAccepted(true);
     setOpeningExam(true);
+    let stream: MediaStream | null = null;
     try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not available in this browser. Open the exam using a secure HTTPS connection.");
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
       const response = await fetch(`/api/student/exams/${encodeURIComponent(examId)}/start`, { method: "POST" });
       const payload = await response.json();
-      if (response.status === 401) { router.replace("/student"); return; }
+      if (response.status === 401) { stream.getTracks().forEach(track => track.stop()); router.replace("/student"); return; }
       if (!response.ok) {
-        if (response.status === 402) { router.replace(`/student/payment/${encodeURIComponent(examId)}`); return; }
+        if (response.status === 402) { stream.getTracks().forEach(track => track.stop()); router.replace(`/student/payment/${encodeURIComponent(examId)}`); return; }
         throw new Error(payload.error || "Could not start the exam.");
       }
       const restoredExam = payload as ExamState;
@@ -64,14 +71,19 @@ export function StudentExam() {
       }
       const savedIndex = restoredExam.restarted ? 0 : Number(sessionStorage.getItem(`mongo-exam-index:${restoredExam.attempt.id}`) || "0");
       setQuestionIndex(Math.min(Math.max(0, savedIndex), restoredExam.questions.length - 1));
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
       setExam(restoredExam);
+      setInstructionsAccepted(true);
     } catch (cause) {
+      stream?.getTracks().forEach(track => track.stop());
       setError(cause instanceof Error ? cause.message : "Could not start the exam.");
-      setInstructionsAccepted(false);
     } finally {
       setOpeningExam(false);
     }
   }
+
+  useEffect(() => () => cameraStreamRef.current?.getTracks().forEach(track => track.stop()), []);
 
   useEffect(() => {
     if (!attemptId || result) return;
@@ -94,6 +106,9 @@ export function StudentExam() {
         if (!active) return;
         const recordedCount = Number(payload.warningCount || 0);
         if (payload.shouldLogout) {
+          cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+          cameraStreamRef.current = null;
+          setCameraStream(null);
           setExam(null);
           setFocusWarningCount(null);
           await fetch("/api/student/session", { method: "DELETE" }).catch(() => undefined);
@@ -138,6 +153,9 @@ export function StudentExam() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Could not submit exam.");
       setResult(payload.result as Submission);
+      cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+      cameraStreamRef.current = null;
+      setCameraStream(null);
       Object.keys(sessionStorage).filter(key => key.startsWith(`mongo-exam-deadline:${exam.attempt.id}:`)).forEach(key => sessionStorage.removeItem(key));
       sessionStorage.removeItem(`mongo-exam-index:${exam.attempt.id}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not submit exam."); }
@@ -235,6 +253,7 @@ export function StudentExam() {
               </div>
             </div>
           </div>
+          {cameraStream && <CandidateExamCamera attemptId={exam.attempt.id} stream={cameraStream} />}
           <div className="mongo-save-notice"><Wifi size={15} aria-hidden="true"/><span>{saving ? "Saving answers…" : "Answers save automatically"}</span></div>
           <article className="demo-paper-question mongo-exam-question">
             <b>Q{questionIndex + 1}. <MathText text={currentQuestion.body}/></b>
@@ -247,7 +266,7 @@ export function StudentExam() {
           <p className="card-footnote mongo-exam-footnote"><GraduationCap size={15}/><span>Refreshing will restore this attempt and saved answers.</span></p>
           {focusWarningCount !== null && <div className="modal-backdrop" role="presentation"><section className="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="screen-warning-title"><h2 id="screen-warning-title">Return to your exam / परीक्षा में वापस जाएँ</h2><p>Warning {focusWarningCount} of 3: You left the examination screen. {focusWarningCount === 3 ? "Your exam attempt is locked after three warnings. You cannot restart from question 1; contact the administrator." : `You have ${3 - focusWarningCount} warning${3 - focusWarningCount === 1 ? "" : "s"} remaining. The third warning locks your exam attempt.`}</p><p lang="hi">चेतावनी {focusWarningCount}/3: आपने परीक्षा स्क्रीन छोड़ दी है। {focusWarningCount === 3 ? "तीन चेतावनियों के बाद आपका परीक्षा प्रयास लॉक हो गया है। प्रश्न 1 से दोबारा शुरू नहीं कर सकते; एडमिन से संपर्क करें।" : focusWarningCount === 2 ? "1 चेतावनी बाकी है। तीसरी चेतावनी पर परीक्षा प्रयास लॉक हो जाएगा।" : "2 चेतावनियाँ बाकी हैं। तीसरी चेतावनी पर परीक्षा प्रयास लॉक हो जाएगा।"}</p><div className="modal-actions"><button className="button button-primary" onClick={() => setFocusWarningCount(null)}>Continue exam / परीक्षा जारी रखें</button></div></section></div>}
         </>}
-        {!instructionsAccepted && !exam && <div className="modal-backdrop exam-instructions-backdrop" role="presentation"><section className="confirm-modal exam-instructions-modal" role="dialog" aria-modal="true" aria-labelledby="exam-instructions-title"><h2 id="exam-instructions-title">Exam rules &amp; process / परीक्षा के नियम</h2><ol><li><span>“Start exam” दबाने पर परीक्षा और टाइमर शुरू होंगे।</span><small lang="en">The exam and timer start when you press “Start exam.”</small></li><li><span>हर सवाल के लिए 45 सेकंड का टाइमर चलेगा। समय खत्म होने पर अगला सवाल खुलेगा।</span><small lang="en">Each question has 45 seconds. The next question opens when time runs out.</small></li><li><span>एक विकल्प चुनें। जवाब अपने-आप सेव होगा; समय रहते विकल्प बदल सकते हैं।</span><small lang="en">Choose one option. Your answer saves automatically, and you can change it before time runs out.</small></li><li><span>परीक्षा के समय इसी टैब और स्क्रीन पर रहें। दूसरी टैब या ऐप खोलना, ब्राउज़र को छोटा करना या परीक्षा स्क्रीन से बाहर जाना चेतावनी मानी जाएगी। पहली और दूसरी बार चेतावनी मिलेगी। तीसरी बार ऐसा करने पर परीक्षा का प्रयास लॉक हो जाएगा और आप लॉग आउट हो जाएंगे। दोबारा लॉग इन करने पर भी यह परीक्षा प्रश्न 1 से शुरू नहीं होगी। दोबारा प्रयास के लिए एडमिन से संपर्क करें; एडमिन की अनुमति मिलने पर ही प्रयास फिर से खुल सकता है।</span><small lang="en">Stay on this exam tab and screen. Switching tabs or apps, minimizing the browser, or leaving the exam screen counts as a warning. The first two times show a warning. The third time locks this exam attempt and logs you out. Logging in again will not restart this exam from question 1. Contact the administrator; only the administrator can authorize another attempt.</small></li><li><span>आखिरी सवाल के बाद “Submit exam” दबाकर अपना परिणाम देखें।</span><small lang="en">After the last question, press “Submit exam” to view your result.</small></li></ol>{error && <div className="notice warning" role="alert">{error}</div>}<button className="button button-primary exam-instructions-start" type="button" onClick={() => void beginExam()} disabled={openingExam}>{openingExam ? "Opening exam…" : "Start exam"}</button></section></div>}
+        {!instructionsAccepted && !exam && <div className="modal-backdrop exam-instructions-backdrop" role="presentation"><section className="confirm-modal exam-instructions-modal" role="dialog" aria-modal="true" aria-labelledby="exam-instructions-title"><h2 id="exam-instructions-title">Exam rules &amp; process / परीक्षा के नियम</h2><ol><li><span>“Start exam” दबाने पर परीक्षा और टाइमर शुरू होंगे।</span><small lang="en">The exam and timer start when you press “Start exam.”</small></li><li><span>हर सवाल के लिए 45 सेकंड का टाइमर चलेगा। समय खत्म होने पर अगला सवाल खुलेगा।</span><small lang="en">Each question has 45 seconds. The next question opens when time runs out.</small></li><li><span>एक विकल्प चुनें। जवाब अपने-आप सेव होगा; समय रहते विकल्प बदल सकते हैं।</span><small lang="en">Choose one option. Your answer saves automatically, and you can change it before time runs out.</small></li><li><span>परीक्षा के समय इसी टैब और स्क्रीन पर रहें। दूसरी टैब या ऐप खोलना, ब्राउज़र को छोटा करना या परीक्षा स्क्रीन से बाहर जाना चेतावनी मानी जाएगी। पहली और दूसरी बार चेतावनी मिलेगी। तीसरी बार ऐसा करने पर परीक्षा का प्रयास लॉक हो जाएगा और आप लॉग आउट हो जाएंगे। दोबारा लॉग इन करने पर भी यह परीक्षा प्रश्न 1 से शुरू नहीं होगी। दोबारा प्रयास के लिए एडमिन से संपर्क करें; एडमिन की अनुमति मिलने पर ही प्रयास फिर से खुल सकता है।</span><small lang="en">Stay on this exam tab and screen. Switching tabs or apps, minimizing the browser, or leaving the exam screen counts as a warning. The first two times show a warning. The third time locks this exam attempt and logs you out. Logging in again will not restart this exam from question 1. Contact the administrator; only the administrator can authorize another attempt.</small></li><li><span>आखिरी सवाल के बाद “Submit exam” दबाकर अपना परिणाम देखें।</span><small lang="en">After the last question, press “Submit exam” to view your result.</small></li></ol><label style={{ display: "flex", alignItems: "flex-start", gap: 9, margin: "14px 0", color: "#334155", fontSize: 14, lineHeight: 1.5 }}><input type="checkbox" checked={cameraConsent} onChange={event => setCameraConsent(event.target.checked)} style={{ marginTop: 4 }} /><span>मैं परीक्षा के दौरान कैमरा निगरानी की अनुमति देता/देती हूँ। यह केवल वीडियो है, आवाज़ रिकॉर्ड नहीं होती और वीडियो सेव नहीं किया जाता। सक्रिय परीक्षा के समय अधिकृत शिक्षक लाइव वीडियो देख सकते हैं।<small lang="en" style={{ display: "block", color: "#64748b" }}>I consent to camera monitoring. Video only: audio is not captured and video is not stored. Authorized teachers can view the live video while this attempt is active.</small></span></label>{error && <div className="notice warning" role="alert">{error}</div>}<button className="button button-primary exam-instructions-start" type="button" onClick={() => void beginExam()} disabled={openingExam || !cameraConsent}>{openingExam ? "Opening exam…" : "Start exam"}</button></section></div>}
       </section>
     </main>
   );

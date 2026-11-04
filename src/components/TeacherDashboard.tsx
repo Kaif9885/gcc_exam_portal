@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
+import { TeacherCandidateVideo } from "@/components/TeacherCandidateVideo";
 import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 import { formatDisplayText } from "@/lib/format-display";
 
@@ -821,7 +822,8 @@ export function TeacherDashboard() {
                     </thead>
                     <tbody>
                       {sessions.map(s => (
-                        <tr key={s.id}>
+                        <Fragment key={s.id}>
+                        <tr>
                           <td>
                             <b>{s.studentName}</b>
                             <small>Roll: {s.rollNumber}</small>
@@ -865,6 +867,9 @@ export function TeacherDashboard() {
                             ) : <small>—</small>}
                           </td>
                           <td>
+                            {s.status === "in_progress" && (
+                              <span className="result-status pending">Live camera</span>
+                            )}
                             {s.status === "locked" && (
                               <button
                                 className="button button-secondary compact-button"
@@ -877,6 +882,10 @@ export function TeacherDashboard() {
                             )}
                           </td>
                         </tr>
+                        {s.status === "in_progress" && (
+                          <tr><td colSpan={9}><TeacherCandidateVideo attemptId={s.id} studentName={s.studentName} /></td></tr>
+                        )}
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
