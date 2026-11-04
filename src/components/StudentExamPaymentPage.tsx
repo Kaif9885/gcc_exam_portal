@@ -63,7 +63,20 @@ export function StudentExamPaymentPage() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Payment details could not be submitted.");
-      router.push(`/exam/${encodeURIComponent(examId)}`);
+      setData(current => current ? {
+        ...current,
+        payment: {
+          status: payload.status === "verified" ? "verified" : "pending",
+          statusToken: String(payload.statusToken ?? ""),
+          payerName: name,
+          paidAt: paymentTime.toISOString(),
+          method,
+        },
+      } : current);
+      setPaymentMethod(null);
+      setChangingPayment(false);
+      setOnlinePaymentDone(false);
+      setOnlineScannerOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Payment details could not be submitted.");
       setBusy(false);
