@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { createStudentSession, studentSessionCookieName, studentSessionCookieOptions } from "@/lib/server/student-session";
-import { ensureCameraTestExam } from "@/lib/server/camera-test-exam";
 
 const classes = new Set(["class-8", "class-9", "class-10-boys", "class-10-girls", "class-11", "class-12"]);
 
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
         const studentCode = `TEST-${randomUUID().slice(0, 8).toUpperCase()}`;
         const createdAt = new Date();
         const identity = {
-          exam_group_id: resolvedGroupId, roll_number: rollNumber, full_name: fullName, board: resolvedBoard,
+          exam_group_id: resolvedGroupId, source_exam_group_id: groupId, roll_number: rollNumber, full_name: fullName, board: resolvedBoard,
           test_class_name: String(group.name), test_class_slug: classSlug, authoritative: true, test_candidate: true,
           created_at: createdAt, created_by: "camera-test-login",
         };
@@ -78,7 +77,6 @@ export async function POST(request: NextRequest) {
       isTestCandidate = true;
     }
 
-    if (isTestCandidate) await ensureCameraTestExam(db);
     const registeredName = String(roster?.full_name ?? student?.full_name ?? fullName);
     const session = createStudentSession({ fullName: registeredName, rollNumber, classSlug: resolvedClassSlug, className: resolvedClassName, groupId: resolvedGroupId, board: String(roster?.board ?? student?.board ?? resolvedBoard) });
     const response = NextResponse.json({ ok: true, testCandidate: isTestCandidate, student: { fullName: registeredName, classSlug: resolvedClassSlug, className: resolvedClassName, rollNumber } });

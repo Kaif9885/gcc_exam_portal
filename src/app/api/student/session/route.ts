@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { getStudentSession, studentSessionCookieName, studentSessionCookieOptions } from "@/lib/server/student-session";
-import { CAMERA_TEST_EXAM_ID } from "@/lib/server/camera-test-exam";
 
 export async function GET(request: NextRequest) {
   const session = getStudentSession(request);
@@ -17,11 +16,11 @@ export async function DELETE(request: NextRequest) {
       const student = await db.collection("students").findOne({ exam_group_id: session.groupId, roll_number: session.rollNumber, test_candidate: true });
       if (student) {
         const studentId = String(student.id ?? student._id);
-        const attempts = await db.collection("examAttempts").find({ student_id: studentId, exam_id: CAMERA_TEST_EXAM_ID }).toArray();
+        const attempts = await db.collection("examAttempts").find({ student_id: studentId }).toArray();
         const attemptIds = attempts.map(attempt => String(attempt.id ?? attempt._id));
         await Promise.all([
-          db.collection("examAttempts").deleteMany({ student_id: studentId, exam_id: CAMERA_TEST_EXAM_ID }),
-          db.collection("results").deleteMany({ student_id: studentId, exam_id: CAMERA_TEST_EXAM_ID }),
+          db.collection("examAttempts").deleteMany({ student_id: studentId }),
+          db.collection("results").deleteMany({ student_id: studentId }),
           db.collection("studentAnswers").deleteMany({ attempt_id: { $in: attemptIds } }),
           db.collection("examVideoSignals").deleteMany({ attempt_id: { $in: attemptIds } }),
           db.collection("examWarnings").deleteMany({ attempt_id: { $in: attemptIds } }),

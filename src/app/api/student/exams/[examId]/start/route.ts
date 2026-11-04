@@ -3,7 +3,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { getStudentSession } from "@/lib/server/student-session";
 import { formatOptionLabel } from "@/lib/format-option-label";
-import { CAMERA_TEST_EXAM_ID, ensureCameraTestExam } from "@/lib/server/camera-test-exam";
 
 type Context = { params: Promise<{ examId: string }> };
 
@@ -23,15 +22,9 @@ export async function POST(request: NextRequest, context: Context) {
     const { examId } = await context.params;
     const db = await getMongoDb();
     const student = await db.collection("students").findOne({ exam_group_id: session.groupId, roll_number: session.rollNumber });
-    const cameraTest = Boolean(student?.test_candidate) && examId === CAMERA_TEST_EXAM_ID;
-    let exam = null;
-    if (cameraTest) {
-      await ensureCameraTestExam(db);
-      exam = await db.collection("exams").findOne({ _id: CAMERA_TEST_EXAM_ID, published: true });
-    } else if (!student?.test_candidate) {
-      const groupAssignment = await db.collection("examGroupAssignments").findOne({ exam_id: examId, exam_group_id: session.groupId });
-      exam = groupAssignment ? await db.collection("exams").findOne({ _id: examId, published: true }) : null;
-    }
+    const assignmentGroupId = student?.test_candidate ? String(student.source_exam_group_id ?? session.groupId) : session.groupId;
+    const groupAssignment = await db.collection("examGroupAssignments").findOne({ exam_id: examId, exam_group_id: assignmentGroupId });
+    const exam = groupAssignment ? await db.collection("exams").findOne({ _id: examId, published: true }) : null;
     if (!exam || !student) return NextResponse.json({ error: "This examination is not assigned to this student." }, { status: 404 });
     const studentId = String(student.id ?? student._id);
     if (!student.test_candidate) {

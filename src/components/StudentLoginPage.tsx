@@ -50,7 +50,7 @@ export function StudentLoginPage() {
       <label htmlFor="student-login-roll">Roll number</label><input id="student-login-roll" value={rollNumber} onChange={event => setRollNumber(event.target.value)} required maxLength={32}/>
       <button className="button button-primary lookup-submit" disabled={busy}>{busy ? "Verifying student…" : "Continue to dashboard"}<ArrowRight size={15}/></button>
     </form>
-    <div className="teacher-login-note"><LockKeyhole size={15}/><span>Registered students open their assigned exams. For camera testing, use a name starting with “Test” (for example, “testing”); it opens only the dummy camera test.</span></div>
+    <div className="teacher-login-note"><LockKeyhole size={15}/><span>Registered students open their assigned exams. For a camera test, use a name starting with “Test” (for example, “testing”); the test account sees the selected class’s assigned exams, and only its attempts reset on logout.</span></div>
     <footer className="lookup-footer" style={{ display: "flex", gap: "14px", justifyContent: "center" }}>
       <button type="button" onClick={() => router.push("/teacher/login")} className="button button-primary lookup-submit">Teacher Login</button>
 
