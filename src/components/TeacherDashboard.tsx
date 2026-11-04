@@ -854,21 +854,25 @@ export function TeacherDashboard() {
                 <span>{sessions.length} sessions</span>
               </div>
 
-              <section aria-label="Live candidate videos" style={{ margin: "0 16px 20px", padding: 16, border: "1px solid #dbe3ef", borderRadius: 14, background: "#f8fafc" }}>
+              <section aria-label="Live candidate videos" className="live-monitor-panel">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
                   <div>
                     <h3 style={{ margin: 0 }}>Live candidate videos</h3>
                     <p style={{ margin: "5px 0 0", color: "#64748b" }}>Student cameras appear automatically. One microphone control applies to every active student session on this page.</p>
                   </div>
-                  <span className="result-status pending">{sessions.filter(s => s.status === "in_progress").length} live</span>
+                  <div className={`live-exam-indicator ${sessionStats.active ? "is-active" : "is-idle"}`} aria-live="polite">
+                    <span className="live-exam-dot" />
+                    <span className="live-exam-marquee"><span>{sessionStats.active ? "LIVE EXAM · MONITORING · LIVE EXAM · MONITORING · " : "MONITOR READY · NO ACTIVE EXAMS · "}</span></span>
+                    <b>{sessionStats.active} {sessionStats.active === 1 ? "live" : "live"}</b>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-                  <button type="button" className={`button ${teacherMicEnabled ? "button-primary" : "button-secondary"}`} disabled={teacherMicPermissionDenied} onClick={() => void toggleTeacherMic()} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                <div className="teacher-audio-toolbar">
+                  <button type="button" className={`button teacher-mic-button ${teacherMicEnabled ? "is-speaking" : ""}`} disabled={teacherMicPermissionDenied} onClick={() => void toggleTeacherMic()}>
                     {teacherMicEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{teacherMicEnabled ? "Mute for all students" : "Speak to all active students"}
                   </button>
-                  {teacherMicPermissionDenied && <button type="button" className="button button-secondary" onClick={() => { setTeacherMicPermissionDenied(false); setTeacherMicError(""); void toggleTeacherMic(); }}>Retry microphone</button>}
-                  <small style={{ color: "#64748b" }}>{teacherMicEnabled ? "Your live voice is being sent to the active student sessions." : "Microphone is muted for all students."}</small>
-                  {teacherMicError && <small role="alert" style={{ color: "#b91c1c" }}>{teacherMicError}</small>}
+                  {teacherMicPermissionDenied && <button type="button" className="button teacher-mic-retry" onClick={() => { setTeacherMicPermissionDenied(false); setTeacherMicError(""); void toggleTeacherMic(); }}>Retry microphone</button>}
+                  <small className="teacher-mic-status">{teacherMicEnabled ? "Your live voice is being sent to active exam sessions." : "Microphone muted for all students."}</small>
+                  {teacherMicError && <small className="teacher-mic-error" role="alert">{teacherMicError}</small>}
                 </div>
                 {sessions.some(s => s.status === "in_progress") ? (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 14 }}>
