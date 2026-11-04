@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, CameraOff } from "lucide-react";
+import { getExamRtcConfiguration } from "@/lib/exam-rtc";
 
 type Signal = { id: string; callId: string; type: "offer" | "answer" | "ice" | "close"; payload: RTCSessionDescriptionInit | RTCIceCandidateInit | null };
 
@@ -22,7 +23,7 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
     let cursor = "";
     const callId = crypto.randomUUID();
     const pendingIce: RTCIceCandidateInit[] = [];
-    const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    const peer = new RTCPeerConnection(getExamRtcConfiguration());
     peer.addTransceiver("video", { direction: "recvonly" });
     peer.ontrack = event => {
       const stream = event.streams[0] ?? new MediaStream([event.track]);
@@ -37,9 +38,9 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
       };
       event.track.onmute = () => setStatus("Camera connected · video paused");
     };
-    peer.onicecandidate = event => { if (event.candidate) void sendSignal(attemptId, callId, "ice", event.candidate.toJSON()).catch(() => undefined); };
+    peer.onicecandidate = event => { if (event.candidate) void sendSignal(attemptId, callId, "ice", event.candidate.toJSON()).catch(() => setStatus("Could not exchange camera connection data. Refresh the monitor.")); };
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "failed") setStatus("Video connection failed. Check network access or try again.");
+      if (peer.connectionState === "failed") setStatus("Camera connection failed. A TURN relay may be required on this network.");
       else if (peer.connectionState === "disconnected") setStatus("Video connection interrupted…");
       else if (peer.connectionState === "connected") setStatus("Connected · waiting for video frames…");
     };

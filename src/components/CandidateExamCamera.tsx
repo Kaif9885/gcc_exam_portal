@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getExamRtcConfiguration } from "@/lib/exam-rtc";
 
 type Signal = { id: string; callId: string; type: "offer" | "answer" | "ice" | "close"; payload: RTCSessionDescriptionInit | RTCIceCandidateInit | null };
 
@@ -24,7 +25,7 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
     let pendingIce: RTCIceCandidateInit[] = [];
     const createPeer = () => {
       peer?.close();
-      const connection = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      const connection = new RTCPeerConnection(getExamRtcConfiguration());
       peer = connection;
       stream.getTracks().forEach(track => connection.addTrack(track, stream));
       connection.onicecandidate = event => { if (event.candidate && activeCallId) void sendSignal(attemptId, activeCallId, "ice", event.candidate.toJSON()); };
