@@ -14,8 +14,9 @@ async function sendSignal(attemptId: string, callId: string, type: Signal["type"
 }
 
 export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; stream: MediaStream }) {
-  const [status, setStatus] = useState("Camera on · waiting for teacher");
+  const [isLive, setIsLive] = useState(false);
   const preview = useRef<HTMLVideoElement>(null);
+  const teacherAudio = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     if (preview.current) preview.current.srcObject = stream;
@@ -34,12 +35,16 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
       stream.getTracks().forEach(track => connection.addTrack(track, stream));
       connection.onicecandidate = event => { if (event.candidate && activeCallId) void sendSignal(attemptId, activeCallId, "ice", event.candidate.toJSON()); };
       connection.onconnectionstatechange = () => {
-        if (peer === connection) setStatus(connection.connectionState === "connected" ? "Live video shared with teacher" : connection.connectionState === "failed" ? "Teacher video connection failed · TURN relay may be needed" : "Connecting to teacher…");
+        if (peer === connection) setIsLive(connection.connectionState === "connected");
+      };
+      connection.ontrack = event => {
+        if (event.track.kind !== "audio" || !teacherAudio.current) return;
+        teacherAudio.current.srcObject = event.streams[0] ?? new MediaStream([event.track]);
+        void teacherAudio.current.play().catch(() => undefined);
       };
       connection.oniceconnectionstatechange = () => {
         if (peer !== connection) return;
-        if (connection.iceConnectionState === "failed") setStatus("Network path failed · ask the school to configure a TURN relay");
-        else if (connection.iceConnectionState === "connected" || connection.iceConnectionState === "completed") setStatus("Network connected · sharing camera with teacher");
+        if (connection.iceConnectionState === "failed" || connection.iceConnectionState === "disconnected") setIsLive(false);
       };
       return connection;
     };
@@ -50,10 +55,7 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
         const query = new URLSearchParams({ callId: activeCallId, after: cursor });
         if (needsIceServers) query.set("includeIceServers", "1");
         const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}?${query}`, { cache: "no-store" });
-        if (!response.ok) {
-          setStatus(response.status === 403 ? "Exam session is no longer active or authorized for video." : `Could not contact the teacher (${response.status}). Retrying…`);
-          return;
-        }
+        if (!response.ok) return;
         const data = await response.json() as { callId?: string; messages?: Signal[]; iceServers?: RTCIceServer[] };
         if (data.iceServers) {
           iceServers = data.iceServers;
@@ -61,7 +63,7 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
         }
         if (data.callId && activeCallId && data.callId !== activeCallId) {
           peer?.close(); peer = null; pendingIce = [];
-          setStatus("Connecting to teacher…");
+          setIsLive(false);
         }
         if (data.callId) activeCallId = data.callId;
         for (const message of data.messages ?? []) {
@@ -69,25 +71,24 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
           activeCallId = message.callId || activeCallId;
           if (message.type === "close") {
             peer?.close(); peer = null; pendingIce = [];
-            setStatus("Camera on · waiting for teacher");
+            setIsLive(false);
           } else if (message.type === "offer" && message.payload) {
-            setStatus("Teacher found · connecting video…");
-            const connection = createPeer(iceServers);
+            if (!peer) setIsLive(false);
+            const connection = peer ?? createPeer(iceServers);
             await connection.setRemoteDescription(message.payload as RTCSessionDescriptionInit);
             for (const candidate of pendingIce) await connection.addIceCandidate(candidate);
             pendingIce = [];
             const answer = await connection.createAnswer();
             await connection.setLocalDescription(answer);
             await sendSignal(attemptId, activeCallId, "answer", connection.localDescription?.toJSON() ?? answer);
-            setStatus("Connecting to teacher…");
           } else if (message.type === "ice" && message.payload) {
             const candidate = message.payload as RTCIceCandidateInit;
             if (peer?.remoteDescription) await peer.addIceCandidate(candidate);
             else pendingIce.push(candidate);
           }
         }
-      } catch (error) {
-        setStatus(error instanceof Error ? `${error.message} Retrying…` : "Video connection failed. Retrying…");
+      } catch {
+        // Keep student-facing status limited to confirmed live sharing.
       } finally {
         polling = false;
       }
@@ -99,6 +100,7 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
 
   return <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 0", padding: "7px 10px", borderRadius: 8, background: "#f0fdf4", color: "#166534", fontSize: 13 }}>
     <video ref={preview} autoPlay muted playsInline aria-label="Your camera preview" style={{ width: 54, height: 40, objectFit: "cover", borderRadius: 5, background: "#111" }} />
-    <span><b>{status}</b><br/><small>Your camera is visible to authorized exam teachers while this attempt is active.</small></span>
+    <audio ref={teacherAudio} autoPlay />
+    {isLive && <span><b>Live video shared with teacher</b></span>}
   </div>;
 }

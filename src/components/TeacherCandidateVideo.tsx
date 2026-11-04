@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, CameraOff } from "lucide-react";
+import { Camera, CameraOff, Mic, MicOff } from "lucide-react";
 import { getExamRtcConfiguration } from "@/lib/exam-rtc";
 
 type Signal = { id: string; callId: string; type: "offer" | "answer" | "ice" | "close"; payload: RTCSessionDescriptionInit | RTCIceCandidateInit | null };
@@ -16,7 +16,15 @@ async function sendSignal(attemptId: string, callId: string, type: Signal["type"
 
 export function TeacherCandidateVideo({ attemptId, studentName, className, rollNumber }: { attemptId: string; studentName: string; className: string; rollNumber: string }) {
   const [status, setStatus] = useState("Connecting to camera…");
+  const [connectionReady, setConnectionReady] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const [talking, setTalking] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [audioError, setAudioError] = useState("");
   const video = useRef<HTMLVideoElement>(null);
+  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const callIdRef = useRef("");
+  const micTrackRef = useRef<MediaStreamTrack | null>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -24,12 +32,14 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
     let cursor = "";
     let needsIceServers = true;
     const callId = crypto.randomUUID();
+    callIdRef.current = callId;
     const pendingIce: RTCIceCandidateInit[] = [];
     let peer: RTCPeerConnection | null = null;
     const createPeer = (iceServers?: RTCIceServer[]) => {
       if (peer) return peer;
       const connection = new RTCPeerConnection(getExamRtcConfiguration(iceServers));
       peer = connection;
+      peerRef.current = connection;
       connection.addTransceiver("video", { direction: "recvonly" });
       connection.ontrack = event => {
         const stream = event.streams[0] ?? new MediaStream([event.track]);
@@ -86,8 +96,9 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
         }
         for (const message of data.messages ?? []) {
           cursor = message.id;
-          if (message.type === "answer" && message.payload && peer && !peer.remoteDescription) {
+          if (message.type === "answer" && message.payload && peer && peer.signalingState === "have-local-offer") {
             await peer.setRemoteDescription(message.payload as RTCSessionDescriptionInit);
+            setConnectionReady(true);
             for (const candidate of pendingIce) await peer.addIceCandidate(candidate);
             pendingIce.length = 0;
           } else if (message.type === "ice" && message.payload) {
@@ -108,9 +119,52 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
       stopped = true;
       window.clearInterval(timer);
       peer?.close();
+      if (peerRef.current === peer) peerRef.current = null;
+      setConnectionReady(false);
+      micTrackRef.current?.stop();
+      micTrackRef.current = null;
+      setTalking(false);
+      setAudioReady(false);
       void sendSignal(attemptId, callId, "close").catch(() => undefined);
     };
   }, [attemptId]);
+
+  const toggleTeacherAudio = async () => {
+    setAudioError("");
+    const track = micTrackRef.current;
+    if (track) {
+      track.enabled = !track.enabled;
+      setTalking(track.enabled);
+      return;
+    }
+
+    const peer = peerRef.current;
+    if (!peer || peer.signalingState !== "stable") {
+      setAudioError("Wait for the camera connection, then try again.");
+      return;
+    }
+
+    setAudioBusy(true);
+    try {
+      const microphone = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const audioTrack = microphone.getAudioTracks()[0];
+      if (!audioTrack) throw new Error("No microphone was found.");
+      audioTrack.enabled = true;
+      micTrackRef.current = audioTrack;
+      peer.addTrack(audioTrack, microphone);
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      await sendSignal(attemptId, callIdRef.current, "offer", peer.localDescription?.toJSON() ?? offer);
+      setTalking(true);
+      setAudioReady(true);
+    } catch (error) {
+      micTrackRef.current?.stop();
+      micTrackRef.current = null;
+      setAudioError(error instanceof Error ? error.message : "Could not enable the microphone.");
+    } finally {
+      setAudioBusy(false);
+    }
+  };
 
   return <article style={{ minWidth: 0, overflow: "hidden", border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff" }}>
     <div style={{ position: "relative", background: "#111" }}>
@@ -121,6 +175,10 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
       <b style={{ display: "flex", alignItems: "center", gap: 7 }}>{status === "Live video" ? <Camera size={16}/> : <CameraOff size={16}/>} {studentName}</b>
       <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>{className} · Roll {rollNumber}</small>
       <small style={{ display: "block", marginTop: 3, color: status === "Live video" ? "#15803d" : "#64748b" }}>{status}</small>
+      <button type="button" className="button button-secondary" disabled={audioBusy || !connectionReady} onClick={() => void toggleTeacherAudio()} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10 }}>
+        {talking ? <MicOff size={15}/> : <Mic size={15}/>}{audioBusy ? "Enabling microphone…" : talking ? "Mute voice" : audioReady ? "Speak to student" : "Enable voice"}
+      </button>
+      {audioError && <small role="status" style={{ display: "block", marginTop: 6, color: "#b91c1c" }}>{audioError}</small>}
     </div>
   </article>;
 }

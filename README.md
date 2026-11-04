@@ -65,7 +65,7 @@ TURN settings are read server-side and are not embedded in the client JavaScript
 - Student accounts receive a result lookup styled after the supplied sample (board, class, subject, chapter, name and roll). Sign-in is required and server-side matching restricts results to that student's own published records.
 - Teacher paper builder can load the supplied 60-question Class 12 Biology reproduction paper. Its answer key remains in a server-only module and is served only to authorized Class 12 teachers through a private, no-store endpoint.
 - Teacher login collects name (Md Arif), password, class, subject and chapter, maps the name to the server-only teacher Auth email, and checks role/class assignment. There is no teacher self-signup.
-- Camera preview and live camera streaming have been removed. Teachers can still view a list of active exam sessions without camera feeds.
+- Active exam sessions support live camera video. Teachers can optionally enable their microphone to speak to a student; student microphones are not requested, and live audio/video is not recorded by the app.
 
 ## Important security and scope notes
 
