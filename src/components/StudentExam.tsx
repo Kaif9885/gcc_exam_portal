@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, Clock3, Download, GraduationCap, Wifi } from "lu
 import { formatDisplayText } from "@/lib/format-display";
 import { MathText } from "@/components/MathText";
 import { formatOptionLabel } from "@/lib/format-option-label";
-import { CandidateExamCamera } from "@/components/CandidateExamCamera";
+import { CandidateExamRoom } from "@/components/CandidateExamRoom";
 
 type ExamQuestion = { id: string; body: string; position: number; marks: number; options: { id: string; label: string; body: string }[]; selectedOptionId: string | null };
 type ExamState = { restarted?: boolean; student: { fullName: string; rollNumber: string }; attempt: { id: string; expiresAt: string; startedAt: string; warningCount: number }; exam: { id: string; title: string; durationSeconds: number; subject: string }; questions: ExamQuestion[] };
@@ -253,7 +253,7 @@ export function StudentExam() {
               </div>
             </div>
           </div>
-          {cameraStream && <CandidateExamCamera attemptId={exam.attempt.id} stream={cameraStream} />}
+          {cameraStream && <CandidateExamRoom attemptId={exam.attempt.id} stream={cameraStream} />}
           <div className="mongo-save-notice"><Wifi size={15} aria-hidden="true"/><span>{saving ? "Saving answers…" : "Answers save automatically"}</span></div>
           <article className="demo-paper-question mongo-exam-question">
             <b>Q{questionIndex + 1}. <MathText text={currentQuestion.body}/></b>
@@ -279,7 +279,7 @@ export function StudentExam() {
               </ol>
               <label style={{ display: "flex", alignItems: "flex-start", gap: 9, margin: "14px 0", color: "#334155", fontSize: 14, lineHeight: 1.5 }}>
                 <input type="checkbox" checked={cameraConsent} onChange={event => setCameraConsent(event.target.checked)} style={{ marginTop: 4 }} />
-                <span>मैं सक्रिय परीक्षा के दौरान कैमरा निगरानी और शिक्षक की लाइव आवाज़ सुनने की अनुमति देता/देती हूँ। वीडियो या आवाज़ रिकॉर्ड नहीं की जाती। अधिकृत शिक्षक सक्रिय परीक्षा में आपका लाइव वीडियो देख सकते हैं और आपसे बोल सकते हैं।<small lang="en" style={{ display: "block", color: "#64748b" }}>I consent to camera monitoring and hearing the teacher&apos;s live voice during the active exam. Video and audio are not recorded. Authorized teachers can view your live video and speak to you during the attempt.</small></span>
+                <span>मैं सक्रिय परीक्षा के दौरान कैमरा निगरानी और शिक्षक की लाइव आवाज़ सुनने की अनुमति देता/देती हूँ। परीक्षा में जुड़ने वाले अधिकृत शिक्षक आपका लाइव वीडियो देख सकते हैं; आप भी जुड़े शिक्षकों का वीडियो देखेंगे। शिक्षक का माइक्रोफोन शुरू में म्यूट रहता है। वीडियो या आवाज़ रिकॉर्ड नहीं की जाती।<small lang="en" style={{ display: "block", color: "#64748b" }}>I consent to camera monitoring and hearing teachers&apos; live voices during the active exam. Authorized teachers who join can see your live video, and you can see teachers who join. Teacher microphones start muted. Live audio and video are not recorded.</small></span>
               </label>
               {error && <div className="notice warning" role="alert">{error}</div>}
               <button className="button button-primary exam-instructions-start" type="button" onClick={() => void beginExam()} disabled={openingExam || !cameraConsent}>{openingExam ? "Opening exam…" : "Start exam"}</button>

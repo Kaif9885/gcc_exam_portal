@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
-import { TeacherCandidateVideo } from "@/components/TeacherCandidateVideo";
+import { TeacherExamRoom } from "@/components/TeacherExamRoom";
 import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 import { formatDisplayText } from "@/lib/format-display";
 
@@ -817,7 +817,7 @@ export function TeacherDashboard() {
                 {sessions.some(s => s.status === "in_progress") ? (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 14 }}>
                     {sessions.filter(s => s.status === "in_progress").map(s => (
-                      <TeacherCandidateVideo key={s.id} attemptId={s.id} studentName={s.studentName} className={s.className} rollNumber={s.rollNumber} />
+                      <TeacherExamRoom key={s.id} attemptId={s.id} studentName={s.studentName} className={s.className} rollNumber={s.rollNumber} />
                     ))}
                   </div>
                 ) : <p style={{ margin: 0, padding: "18px 10px", textAlign: "center", color: "#64748b" }}>No active candidate cameras right now.</p>}
