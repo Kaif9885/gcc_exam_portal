@@ -133,6 +133,7 @@ export function TeacherDashboard() {
   const [teacherMicTrack, setTeacherMicTrack] = useState<MediaStreamTrack | null>(null);
   const [teacherMicEnabled, setTeacherMicEnabled] = useState(false);
   const [teacherMicError, setTeacherMicError] = useState("");
+  const [teacherMicPermissionDenied, setTeacherMicPermissionDenied] = useState(false);
 
   // Students Roster State
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -323,11 +324,17 @@ export function TeacherDashboard() {
       track.enabled = true;
       setTeacherMicTrack(track);
       setTeacherMicEnabled(true);
+      setTeacherMicPermissionDenied(false);
     } catch (cause) {
       const name = cause instanceof DOMException ? cause.name : "";
-      setTeacherMicError(name === "NotAllowedError" || name === "SecurityError"
-        ? "Microphone permission denied. Allow microphone access in browser site settings, then try again."
-        : cause instanceof Error ? cause.message : "Could not enable the microphone.");
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        setTeacherMicPermissionDenied(true);
+        setTeacherMicError("Microphone access is blocked. Check this site’s Chrome permission and your device’s OS microphone privacy setting. If both are allowed, reload Chrome and check the selected input device.");
+      } else {
+        setTeacherMicError(name === "NotFoundError"
+          ? "No microphone was found. Connect or select a microphone, then retry."
+          : cause instanceof Error ? cause.message : "Could not enable the microphone.");
+      }
     }
   }
 
@@ -856,9 +863,10 @@ export function TeacherDashboard() {
                   <span className="result-status pending">{sessions.filter(s => s.status === "in_progress").length} live</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-                  <button type="button" className={`button ${teacherMicEnabled ? "button-primary" : "button-secondary"}`} onClick={() => void toggleTeacherMic()} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                  <button type="button" className={`button ${teacherMicEnabled ? "button-primary" : "button-secondary"}`} disabled={teacherMicPermissionDenied} onClick={() => void toggleTeacherMic()} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                     {teacherMicEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{teacherMicEnabled ? "Mute for all students" : "Speak to all active students"}
                   </button>
+                  {teacherMicPermissionDenied && <button type="button" className="button button-secondary" onClick={() => { setTeacherMicPermissionDenied(false); setTeacherMicError(""); void toggleTeacherMic(); }}>Retry microphone</button>}
                   <small style={{ color: "#64748b" }}>{teacherMicEnabled ? "Your live voice is being sent to the active student sessions." : "Microphone is muted for all students."}</small>
                   {teacherMicError && <small role="alert" style={{ color: "#b91c1c" }}>{teacherMicError}</small>}
                 </div>
