@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
       const result = resultByExam.get(id);
       const startsAt = exam.starts_at ? new Date(exam.starts_at).getTime() : null;
       const endsAt = exam.ends_at ? new Date(exam.ends_at).getTime() : null;
-      let status = attempt?.status === "retry_allowed" ? "available" : attempt?.status ?? "available";
+      let status = student?.test_candidate && attempt?.status !== "in_progress"
+        ? "available"
+        : attempt?.status === "retry_allowed" ? "available" : attempt?.status ?? "available";
       if (attempt?.status !== "submitted" && startsAt !== null && now < startsAt) status = "scheduled";
       if (attempt?.status !== "submitted" && endsAt !== null && now >= endsAt) status = "closed";
       if (attempt?.status === "in_progress" && Number(attempt.warning_count ?? 0) >= 3) status = "locked";
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
         marks: Number(row.marks_obtained ?? 0), maxMarks: Number(row.max_marks ?? 0), percentage: Number(row.percentage ?? 0),
       }];
     }).sort((left, right) => new Date(right.submittedAt ?? right.examDate ?? 0).getTime() - new Date(left.submittedAt ?? left.examDate ?? 0).getTime());
-    return NextResponse.json({ student: { fullName: session.fullName, rollNumber: session.rollNumber, classSlug: session.classSlug, className: session.className, board: session.board }, exams: assignedExams, results: resultsList });
+    return NextResponse.json({ student: { fullName: session.fullName, rollNumber: session.rollNumber, classSlug: session.classSlug, className: session.className, board: session.board, testCandidate: Boolean(student?.test_candidate) }, exams: assignedExams, results: resultsList });
   } catch (error) {
     console.error("MongoDB student dashboard failed:", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json({ error: "Could not load your dashboard from the school database." }, { status: 503 });

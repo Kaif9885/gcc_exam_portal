@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         classSlug: String(group?.slug ?? "general"),
         className: String(group?.name ?? "General Class"),
         active: Boolean(student.active ?? true),
+        testCandidate: Boolean(student.test_candidate),
       };
     });
 

@@ -29,6 +29,7 @@ type TeacherResult = {
   attemptId: string;
   studentId: string;
   studentName: string;
+  testCandidate?: boolean;
   rollNumber: string;
   studentCode: string;
   examId: string;
@@ -67,6 +68,7 @@ type PaperRow = {
 type LiveSessionRow = {
   id: string;
   studentName: string;
+  testCandidate?: boolean;
   rollNumber: string;
   className: string;
   examTitle: string;
@@ -826,6 +828,7 @@ export function TeacherDashboard() {
                         <tr>
                           <td>
                             <b>{s.studentName}</b>
+                            {s.testCandidate && <small style={{ display: "block", color: "#b45309", fontWeight: 700 }}>TEST CANDIDATE</small>}
                             <small>Roll: {s.rollNumber}</small>
                           </td>
                           <td>

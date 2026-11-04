@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       return {
         id: String(attempt.id ?? attempt._id),
         studentName: String(student?.full_name ?? "Student"),
+        testCandidate: Boolean(student?.test_candidate),
         rollNumber: String(student?.roll_number ?? "—"),
         className: String(group?.name ?? "General Class"),
         examTitle: String(exam?.title ?? "Exam"),

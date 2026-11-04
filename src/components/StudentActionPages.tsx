@@ -8,7 +8,7 @@ import { formatDisplayText } from "@/lib/format-display";
 
 type Exam = { id: string; title: string; subject: string; chapter: string; durationSeconds: number; status: string; startsAt: string | null; endsAt: string | null };
 type StudentResult = { examId: string; title: string; subject: string; chapter: string; examDate: string | null; submittedAt: string | null; marks: number; maxMarks: number; percentage: number };
-type Payload = { student: { fullName: string; rollNumber: string; className: string }; exams: Exam[]; results: StudentResult[] };
+type Payload = { student: { fullName: string; rollNumber: string; className: string; testCandidate?: boolean }; exams: Exam[]; results: StudentResult[] };
 
 function dateLabel(value: string | null) {
   if (!value) return "Date not set";
@@ -145,7 +145,7 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                       <button
                         className="button button-primary"
                         disabled={blocked || scheduled}
-                        onClick={() => router.push(ongoing ? `/exam/${exam.id}` : `/student/payment/${exam.id}`)}
+                        onClick={() => router.push(ongoing || payload.student.testCandidate ? `/exam/${exam.id}` : `/student/payment/${exam.id}`)}
                       >
                         {ongoing ? "Continue exam" : scheduled ? "Not started" : "Start exam"}
                         <ArrowRight size={14} />

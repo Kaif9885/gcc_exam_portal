@@ -26,12 +26,14 @@ export async function POST(request: NextRequest, context: Context) {
     const student = await db.collection("students").findOne({ exam_group_id: session.groupId, roll_number: session.rollNumber });
     if (!exam || !student) return NextResponse.json({ error: "This examination is not assigned to this student." }, { status: 404 });
     const studentId = String(student.id ?? student._id);
-    const payment = await db.collection("examPaymentSubmissions").findOne({
-      exam_id: examId,
-      student_id: studentId,
-      status: { $in: ["verified", "pending"] },
-    });
-    if (!payment) return NextResponse.json({ error: "Please enter your payment details before exam access." }, { status: 402 });
+    if (!student.test_candidate) {
+      const payment = await db.collection("examPaymentSubmissions").findOne({
+        exam_id: examId,
+        student_id: studentId,
+        status: { $in: ["verified", "pending"] },
+      });
+      if (!payment) return NextResponse.json({ error: "Please enter your payment details before exam access." }, { status: 402 });
+    }
     const now = new Date();
     if (exam.starts_at && now < new Date(exam.starts_at)) return NextResponse.json({ error: "This exam has not started yet." }, { status: 409 });
     const scheduledEnd = exam.ends_at ? new Date(exam.ends_at) : null;
@@ -42,6 +44,15 @@ export async function POST(request: NextRequest, context: Context) {
     const attempts = db.collection("examAttempts");
     let attempt = await attempts.findOne({ exam_id: examId, student_id: studentId });
     let restarted = false;
+    if (student.test_candidate && attempt && (attempt.status !== "in_progress" || new Date(attempt.expires_at).getTime() <= now.getTime())) {
+      await Promise.all([
+        db.collection("studentAnswers").deleteMany({ attempt_id: String(attempt.id ?? attempt._id) }),
+        db.collection("results").deleteMany({ exam_id: examId, student_id: studentId }),
+        attempts.deleteOne({ _id: attempt._id }),
+      ]);
+      attempt = null;
+      restarted = true;
+    }
     if (attempt?.status === "in_progress" && Number(attempt.warning_count ?? 0) >= 3) {
       await attempts.updateOne({ _id: attempt._id, status: "in_progress" }, { $set: { status: "locked" } });
       return NextResponse.json({ error: "This exam attempt is locked after three warnings. It cannot restart from question 1. Ask your administrator for help." }, { status: 403 });
