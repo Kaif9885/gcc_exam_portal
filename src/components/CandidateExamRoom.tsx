@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff } from "lucide-react";
 import { useExamVideoRoom } from "@/lib/use-exam-video-room";
 
 function TeacherAudio({ stream }: { stream: MediaStream }) {
@@ -18,18 +19,54 @@ function TeacherAudio({ stream }: { stream: MediaStream }) {
 
 export function CandidateExamRoom({ attemptId, stream }: { attemptId: string; stream: MediaStream }) {
   const preview = useRef<HTMLVideoElement>(null);
-  const { isLive, remoteAudioStreams } = useExamVideoRoom(attemptId, stream, "candidate");
+  const [microphoneTrack, setMicrophoneTrack] = useState<MediaStreamTrack | null>(null);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
+  const [audioError, setAudioError] = useState("");
+  const { isLive, remoteAudioStreams, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, stream, "candidate");
 
   useEffect(() => {
     if (preview.current) preview.current.srcObject = stream;
   }, [stream]);
+
+  useEffect(() => () => microphoneTrack?.stop(), [microphoneTrack]);
+
+  const toggleMicrophone = async () => {
+    setAudioError("");
+    if (microphoneTrack) {
+      microphoneTrack.enabled = !microphoneTrack.enabled;
+      setMicrophoneEnabled(microphoneTrack.enabled);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setAudioError("Microphone requires HTTPS or localhost.");
+      return;
+    }
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+      const track = audioStream.getAudioTracks()[0];
+      if (!track) throw new Error("No microphone was found.");
+      track.enabled = true;
+      setMicrophoneTrack(track);
+      await setOutgoingAudioTrack(track);
+      setMicrophoneEnabled(true);
+    } catch (cause) {
+      const name = cause instanceof DOMException ? cause.name : "";
+      setAudioError(name === "NotAllowedError" || name === "SecurityError"
+        ? "Microphone permission denied. Allow it in browser site settings, then try again."
+        : cause instanceof Error ? cause.message : "Could not enable the microphone.");
+    }
+  };
 
   return (
     <section aria-label="Live exam room" style={{ margin: "10px 0", padding: 10, borderRadius: 10, background: "#f0fdf4", color: "#166534" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13 }}>
         <video ref={preview} autoPlay muted playsInline aria-label="Your camera preview" style={{ width: 54, height: 40, objectFit: "cover", borderRadius: 5, background: "#111" }} />
         {isLive && <b>Live video shared with teacher</b>}
+        <button type="button" className="button button-secondary" onClick={() => void toggleMicrophone()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {microphoneEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{microphoneEnabled ? "Mute microphone" : "Reply to teacher"}
+        </button>
       </div>
+      {audioError && <small role="alert" style={{ display: "block", marginTop: 6, color: "#b91c1c", fontSize: 12 }}>{audioError}</small>}
       {remoteAudioStreams.map(({ participantId, stream: audioStream }) => (
         <TeacherAudio key={participantId} stream={audioStream} />
       ))}

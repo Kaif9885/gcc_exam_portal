@@ -90,9 +90,11 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
       participants.set(participant.participantId, participant);
       if (role === "candidate" && localStream) {
         localStream.getVideoTracks().forEach(track => connection.addTrack(track, localStream));
+        const audio = connection.addTransceiver("audio", { direction: "sendrecv" });
+        void audio.sender.replaceTrack(outgoingAudioTrackRef.current);
       } else if (role === "teacher") {
         connection.addTransceiver("video", { direction: "recvonly" });
-        const audio = connection.addTransceiver("audio", { direction: "sendonly" });
+        const audio = connection.addTransceiver("audio", { direction: "sendrecv" });
         void audio.sender.replaceTrack(outgoingAudioTrackRef.current);
       }
       connection.onicecandidate = event => {

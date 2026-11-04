@@ -1,13 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
-import { Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Users, Volume2, VolumeX } from "lucide-react";
 import { ExamRoomVideoTile } from "@/components/ExamRoomVideoTile";
 import { useExamVideoRoom } from "@/lib/use-exam-video-room";
 
+function StudentAudio({ stream, muted }: { stream: MediaStream; muted: boolean }) {
+  const audio = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const element = audio.current;
+    if (!element) return;
+    element.srcObject = stream;
+    element.muted = muted;
+    if (!muted) void element.play().catch(() => undefined);
+  }, [stream, muted]);
+
+  return <audio ref={audio} autoPlay={!muted} muted={muted} aria-label="Student reply audio" style={{ display: "none" }} />;
+}
+
 export function TeacherExamRoom({ attemptId, studentName, className, rollNumber, audioTrack, microphoneEnabled }: { attemptId: string; studentName: string; className: string; rollNumber: string; audioTrack: MediaStreamTrack | null; microphoneEnabled: boolean }) {
-  const { remoteVideos, error: roomError, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, null, "teacher");
+  const [studentAudioMuted, setStudentAudioMuted] = useState(true);
+  const { remoteVideos, remoteAudioStreams, error: roomError, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, null, "teacher");
   const studentVideo = remoteVideos.find(participant => participant.role === "candidate");
+  const studentAudio = remoteAudioStreams.find(participant => participant.participantId === studentVideo?.participantId);
 
   useEffect(() => { void setOutgoingAudioTrack(audioTrack); }, [audioTrack, setOutgoingAudioTrack]);
 
@@ -23,7 +39,11 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber,
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "0 10px 10px" }}>
         <small style={{ color: microphoneEnabled ? "#15803d" : "#64748b" }}>{microphoneEnabled ? "Teacher audio is on for all active students" : "Teacher audio is muted"}</small>
+        {studentAudio && <button type="button" className="button button-secondary" onClick={() => setStudentAudioMuted(muted => !muted)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {studentAudioMuted ? <Volume2 size={15}/> : <VolumeX size={15}/>}{studentAudioMuted ? "Hear student reply" : "Mute student playback"}
+        </button>}
       </div>
+      {studentAudio && <StudentAudio stream={studentAudio.stream} muted={studentAudioMuted} />}
       {roomError && <small role="status" style={{ display: "block", padding: "0 10px 10px", color: "#b91c1c" }}>{roomError}</small>}
     </article>
   );

@@ -22,6 +22,7 @@ export function StudentExamPaymentPage() {
   const [changingPayment, setChangingPayment] = useState(false);
   const [onlinePaymentDone, setOnlinePaymentDone] = useState(false);
   const [onlineScannerOpen, setOnlineScannerOpen] = useState(false);
+  const [paymentSuccessOpen, setPaymentSuccessOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -77,6 +78,8 @@ export function StudentExamPaymentPage() {
       setChangingPayment(false);
       setOnlinePaymentDone(false);
       setOnlineScannerOpen(false);
+      setPaymentSuccessOpen(true);
+      setBusy(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Payment details could not be submitted.");
       setBusy(false);
@@ -122,7 +125,7 @@ export function StudentExamPaymentPage() {
                 <div>
                   <b>{data.payment.status === "verified" ? "Payment verified" : "Payment details submitted"}</b>
                   <span>{data.payment.method === "cash" ? "Cash / Offline" : "Online Payment"} · {data.payment.status === "pending" ? "awaiting staff verification" : "ready"}</span>
-                  <button type="button" onClick={() => router.push(`/exam/${encodeURIComponent(examId)}`)}>Continue to exam</button>
+                  <button type="button" onClick={() => router.push(`/exam/${encodeURIComponent(examId)}`)}>Continue exam</button>
                   {data.payment.status === "pending" && <button type="button" onClick={() => setChangingPayment(true)}>Change payment method</button>}
                 </div>
               </div>
@@ -186,6 +189,29 @@ export function StudentExamPaymentPage() {
               </section>
             )}
           </>
+        )}
+        {paymentSuccessOpen && data?.payment && (
+          <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+            <section className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="payment-success-title">
+              <div style={{ textAlign: "center" }}>
+                <CheckCircle2 size={38} color="#16a34a" aria-hidden="true" />
+                <h2 id="payment-success-title" style={{ margin: "12px 0 6px" }}>Payment submitted successfully</h2>
+                <p style={{ margin: 0, color: "#64748b" }}>
+                  {data.payment.method === "cash" ? "Cash / Offline" : "Online Payment"} {data.payment.status === "verified" ? "payment is verified." : "details have been submitted. Staff will verify the payment."}
+                </p>
+              </div>
+              <div style={{ marginTop: 20, padding: 12, border: "1px solid #bfdbfe", borderRadius: 10, background: "#eff6ff" }}>
+                <button
+                  type="button"
+                  className="button button-primary lookup-submit"
+                  style={{ margin: 0 }}
+                  onClick={() => router.push(`/exam/${encodeURIComponent(examId)}`)}
+                >
+                  Continue exam <ArrowRight size={15} />
+                </button>
+              </div>
+            </section>
+          </div>
         )}
         <footer className="lookup-footer">
           <span><ShieldCheck size={16} aria-hidden="true" /> Secure student payment</span>
