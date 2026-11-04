@@ -21,7 +21,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 6. Optionally set `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` and server-side `PAYMENT_UPI_ID` to the school's verified QR/payee. The UPI ID is returned to the payment page at runtime so the browser can open a UPI app; it is visible to payment page users. PhonePe is not automatically verified by the app.
 7. Set server-only `TEACHER_LOGIN_PASSWORD=786` and a unique random `TEACHER_SESSION_SECRET` in `.env.local`.
 8. Run `npm run dev`, then visit the local URL shown by Next.js.
-9. For live camera monitoring across mobile networks, configure `NEXT_PUBLIC_TURN_URL`, `NEXT_PUBLIC_TURN_USERNAME` and `NEXT_PUBLIC_TURN_CREDENTIAL` in `.env.local` and in the hosting provider's environment settings. TURN URLs may be comma-separated. STUN alone cannot connect every carrier, school Wi-Fi or NAT; use valid TURN credentials from a WebRTC relay provider and redeploy after setting them.
+9. For live camera monitoring across mobile networks, configure server-side `TURN_URL`, `TURN_USERNAME` and `TURN_CREDENTIAL` in `.env.local` and in the hosting provider's environment settings. TURN URLs may be comma-separated. STUN alone cannot connect every carrier, school Wi-Fi or NAT; use short-lived credentials from a WebRTC relay provider and redeploy after setting them.
 
 ### Environment variables
 
@@ -32,14 +32,16 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser/server | Legacy public anon key fallback; use only if your project does not provide a publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only | Reserved for trusted administrative jobs; never use in client code or expose as `NEXT_PUBLIC_*` |
 | `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` | Browser | Optional school-owned QR image shown in student registration |
-| `NEXT_PUBLIC_TURN_URL` | Browser | Optional comma-separated TURN relay URLs for WebRTC camera connections |
-| `NEXT_PUBLIC_TURN_USERNAME` | Browser | TURN relay username; use provider-issued temporary credentials where available |
-| `NEXT_PUBLIC_TURN_CREDENTIAL` | Browser | TURN relay credential; visible to connected clients, so use scoped/rotating credentials |
+| `TURN_URL` | Server only | Optional comma-separated TURN relay URLs for WebRTC camera connections |
+| `TURN_USERNAME` | Server config | TURN relay username; delivered to authorized active exam sessions |
+| `TURN_CREDENTIAL` | Server config | TURN relay credential; delivered to authorized active exam sessions, so use short-lived credentials |
 | `MONGODB_URI` | Server only | MongoDB Atlas connection string; keep it private |
 | `MONGODB_DB` | Server only | Database name (defaults to the URI's database if omitted) |
 | `PAYMENT_UPI_ID` | Server (returned to payment page) | Optional school UPI payee address used to open the UPI app; visible to payment page users |
 | `TEACHER_LOGIN_PASSWORD` | Server only | Shared password used by the approved teachers |
 | `TEACHER_SESSION_SECRET` | Server only | Random secret used to sign the teacher login cookie |
+
+TURN settings are read server-side and are not embedded in the client JavaScript bundle. WebRTC clients still need the relay credentials, so authorized exam users can see them in their browser; use provider-issued short-lived credentials rather than treating them as fully private.
 
 ## Current implementation
 

@@ -41,7 +41,18 @@ export async function GET(request: NextRequest, context: Context) {
     if (callId) query.call_id = callId;
     if (after && ObjectId.isValid(after)) query._id = { $gt: new ObjectId(after) };
     const rows = await viewer.db.collection("examVideoSignals").find(query).sort({ _id: 1 }).limit(50).toArray();
-    return NextResponse.json({ callId, messages: rows.map(row => ({ id: String(row._id), callId: String(row.call_id ?? ""), type: row.type, payload: row.payload })) }, { headers: { "Cache-Control": "private, no-store" } });
+    const response: { callId: string; messages: { id: string; callId: string; type: unknown; payload: unknown }[]; iceServers?: RTCIceServer[] } = {
+      callId,
+      messages: rows.map(row => ({ id: String(row._id), callId: String(row.call_id ?? ""), type: row.type, payload: row.payload })),
+    };
+    if (request.nextUrl.searchParams.get("includeIceServers") === "1") {
+      const turnUrls = (process.env.TURN_URL ?? "").split(",").map(url => url.trim()).filter(Boolean);
+      response.iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+      if (turnUrls.length && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
+        response.iceServers.push({ urls: turnUrls, username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
+      }
+    }
+    return NextResponse.json(response, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Exam video signal read failed:", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json({ error: "Could not read video connection signals." }, { status: 503 });
