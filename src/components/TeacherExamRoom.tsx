@@ -9,6 +9,7 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [joining, setJoining] = useState(false);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
+  const [microphoneAvailable, setMicrophoneAvailable] = useState(false);
   const [error, setError] = useState("");
   const preview = useRef<HTMLVideoElement>(null);
   const { remoteVideos, error: roomError } = useExamVideoRoom(attemptId, localStream);
@@ -24,15 +25,32 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber 
     setJoining(true);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access requires a secure HTTPS connection.");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: { echoCancellation: true, noiseSuppression: true },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+        setMicrophoneAvailable(true);
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        setMicrophoneAvailable(false);
+        setError("Camera joined, but microphone access was denied. Allow microphone permission in browser site settings, then leave and rejoin to enable voice.");
+      }
       stream.getAudioTracks().forEach(track => { track.enabled = false; });
       setMicrophoneEnabled(false);
       setLocalStream(stream);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not join the live room.");
+      const errorName = cause instanceof DOMException ? cause.name : "";
+      if (errorName === "NotAllowedError" || errorName === "SecurityError") {
+        setError("Camera permission denied. Allow camera access for this site in browser settings, then reload. Camera access requires HTTPS or localhost.");
+      } else if (errorName === "NotFoundError") {
+        setError("No camera was found. Connect a camera and try again.");
+      } else if (errorName === "NotReadableError") {
+        setError("The camera is busy in another app or tab. Close it there and try again.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Could not join the live room.");
+      }
     } finally {
       setJoining(false);
     }
@@ -49,6 +67,7 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber 
     localStream?.getTracks().forEach(track => track.stop());
     setLocalStream(null);
     setMicrophoneEnabled(false);
+    setMicrophoneAvailable(false);
   };
 
   return (
@@ -79,7 +98,7 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber 
             <Camera size={15}/>{joining ? "Joining live room…" : "Join live room"}
           </button>
         ) : <>
-          <button type="button" className="button button-secondary" onClick={toggleMicrophone} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button type="button" className="button button-secondary" disabled={!microphoneAvailable} onClick={toggleMicrophone} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             {microphoneEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
           </button>
           <button type="button" className="button button-secondary" onClick={leaveRoom} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
