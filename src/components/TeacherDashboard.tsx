@@ -15,6 +15,8 @@ import {
   BookOpen,
   Clock3,
   Pencil,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { TeacherPaperQuestions } from "@/components/TeacherPaperQuestions";
 import { TeacherAnswerKeyDownload } from "@/components/TeacherAnswerKeyDownload";
@@ -128,6 +130,9 @@ export function TeacherDashboard() {
   const [monitorViewers, setMonitorViewers] = useState<MonitorViewer[]>([]);
   const [monitorNow, setMonitorNow] = useState(() => Date.now());
   const [retryGrantingId, setRetryGrantingId] = useState("");
+  const [teacherMicTrack, setTeacherMicTrack] = useState<MediaStreamTrack | null>(null);
+  const [teacherMicEnabled, setTeacherMicEnabled] = useState(false);
+  const [teacherMicError, setTeacherMicError] = useState("");
 
   // Students Roster State
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -297,6 +302,34 @@ export function TeacherDashboard() {
       window.clearInterval(clock);
     };
   }, [tab, loadSessions]);
+
+  useEffect(() => () => teacherMicTrack?.stop(), [teacherMicTrack]);
+
+  async function toggleTeacherMic() {
+    setTeacherMicError("");
+    if (teacherMicTrack) {
+      teacherMicTrack.enabled = !teacherMicTrack.enabled;
+      setTeacherMicEnabled(teacherMicTrack.enabled);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setTeacherMicError("Microphone access requires HTTPS or localhost.");
+      return;
+    }
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+      const track = audioStream.getAudioTracks()[0];
+      if (!track) throw new Error("No microphone was found.");
+      track.enabled = true;
+      setTeacherMicTrack(track);
+      setTeacherMicEnabled(true);
+    } catch (cause) {
+      const name = cause instanceof DOMException ? cause.name : "";
+      setTeacherMicError(name === "NotAllowedError" || name === "SecurityError"
+        ? "Microphone permission denied. Allow microphone access in browser site settings, then try again."
+        : cause instanceof Error ? cause.message : "Could not enable the microphone.");
+    }
+  }
 
   // Logout handler
   async function logout() {
@@ -818,14 +851,21 @@ export function TeacherDashboard() {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
                   <div>
                     <h3 style={{ margin: 0 }}>Live candidate videos</h3>
-                    <p style={{ margin: "5px 0 0", color: "#64748b" }}>Active exam cameras appear together here with each student’s name and class.</p>
+                    <p style={{ margin: "5px 0 0", color: "#64748b" }}>Student cameras appear automatically. One microphone control applies to every active student session on this page.</p>
                   </div>
                   <span className="result-status pending">{sessions.filter(s => s.status === "in_progress").length} live</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                  <button type="button" className={`button ${teacherMicEnabled ? "button-primary" : "button-secondary"}`} onClick={() => void toggleTeacherMic()} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    {teacherMicEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{teacherMicEnabled ? "Mute for all students" : "Speak to all active students"}
+                  </button>
+                  <small style={{ color: "#64748b" }}>{teacherMicEnabled ? "Your live voice is being sent to the active student sessions." : "Microphone is muted for all students."}</small>
+                  {teacherMicError && <small role="alert" style={{ color: "#b91c1c" }}>{teacherMicError}</small>}
                 </div>
                 {sessions.some(s => s.status === "in_progress") ? (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 14 }}>
                     {sessions.filter(s => s.status === "in_progress").map(s => (
-                      <TeacherExamRoom key={s.id} attemptId={s.id} studentName={s.studentName} className={s.className} rollNumber={s.rollNumber} />
+                      <TeacherExamRoom key={s.id} attemptId={s.id} studentName={s.studentName} className={s.className} rollNumber={s.rollNumber} audioTrack={teacherMicTrack} microphoneEnabled={teacherMicEnabled} />
                     ))}
                   </div>
                 ) : <p style={{ margin: 0, padding: "18px 10px", textAlign: "center", color: "#64748b" }}>No active candidate cameras right now.</p>}
@@ -944,15 +984,17 @@ export function TeacherDashboard() {
                 </div>
                 <div className="results-table-wrap">
                   <table className="results-table">
-                    <thead><tr><th>STUDENT</th><th>CLASS</th><th>EXAM</th><th>STATUS</th><th>STARTED AT</th><th>SUBMITTED AT</th></tr></thead>
+                    <thead><tr><th>STUDENT</th><th>CLASS</th><th>EXAM</th><th>STATUS</th><th>START DATE</th><th>START TIME</th><th>SUBMIT DATE</th><th>SUBMIT TIME</th></tr></thead>
                     <tbody>{sessions.map(session => (
                       <tr key={session.id}>
                         <td><b>{session.studentName}</b>{session.testCandidate && <small style={{ display: "block", color: "#b45309", fontWeight: 700 }}>TEST CANDIDATE</small>}<small>Roll: {session.rollNumber}</small></td>
                         <td>{session.className}</td>
                         <td><b>{formatDisplayText(session.examTitle)}</b><small>{session.subject}</small></td>
                         <td><span className={`result-status ${session.status === "submitted" ? "passed" : session.status === "in_progress" ? "pending" : "failed"}`}>{session.status.replaceAll("_", " ")}</span></td>
-                        <td><small>{new Date(session.startedAt).toLocaleString()}</small></td>
-                        <td><small>{session.submittedAt ? new Date(session.submittedAt).toLocaleString() : "—"}</small></td>
+                        <td><small>{new Date(session.startedAt).toLocaleDateString()}</small></td>
+                        <td><small>{new Date(session.startedAt).toLocaleTimeString()}</small></td>
+                        <td><small>{session.submittedAt ? new Date(session.submittedAt).toLocaleDateString() : "—"}</small></td>
+                        <td><small>{session.submittedAt ? new Date(session.submittedAt).toLocaleTimeString() : "—"}</small></td>
                       </tr>
                     ))}</tbody>
                   </table>

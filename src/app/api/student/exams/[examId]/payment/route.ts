@@ -9,9 +9,10 @@ async function loadStudentExam(request: NextRequest, examId: string) {
   const session = getStudentSession(request);
   if (!session) return { response: NextResponse.json({ error: "Student session required." }, { status: 401 }) };
   const db = await getMongoDb();
-  const assignment = await db.collection("examGroupAssignments").findOne({ exam_id: examId, exam_group_id: session.groupId });
-  const exam = assignment ? await db.collection("exams").findOne({ _id: examId, published: true }) : null;
   const student = await db.collection("students").findOne({ exam_group_id: session.groupId, roll_number: session.rollNumber });
+  const assignmentGroupId = student?.test_candidate ? String(student.source_exam_group_id ?? session.groupId) : session.groupId;
+  const assignment = await db.collection("examGroupAssignments").findOne({ exam_id: examId, exam_group_id: assignmentGroupId });
+  const exam = assignment ? await db.collection("exams").findOne({ _id: examId, published: true }) : null;
   if (!exam || !student) return { response: NextResponse.json({ error: "This examination is not assigned to this student." }, { status: 404 }) };
   const studentId = String(student.id ?? student._id);
   const previousPayment = await db.collection("examPaymentSubmissions").find({ exam_id: examId, student_id: studentId }).sort({ created_at: -1 }).limit(1).next();

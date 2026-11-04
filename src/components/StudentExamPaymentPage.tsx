@@ -103,7 +103,7 @@ export function StudentExamPaymentPage() {
           <>
             <h2>{paymentMethod === "online" && onlinePaymentDone ? "Online Payment Details" : "Pay ₹20 to continue"}</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            {paymentMethod === null && data.payment && !changingPayment ? (
+            {paymentMethod === null && data.payment && data.payment.status !== "rejected" && !changingPayment ? (
               <div className="exam-auth-notice payment-status-verified">
                 <CheckCircle2 size={18} />
                 <div>
@@ -115,6 +115,7 @@ export function StudentExamPaymentPage() {
               </div>
             ) : paymentMethod === null && (
               <>
+                {data.payment?.status === "rejected" && <div className="notice warning" role="alert">The previous payment submission was rejected. Choose a payment method and submit updated details.</div>}
                 <p className="payment-upi-instructions">{changingPayment ? "Choose a payment method to update your pending details." : "Choose a payment method to continue."}</p>
                 <div className="payment-method-options" role="group" aria-label="Payment method">
                   <button type="button" className="button payment-method-cash" disabled={busy} onClick={() => void submitPayment("cash", data.student.fullName, new Date())}>Cash / Offline</button>

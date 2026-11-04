@@ -145,7 +145,7 @@ export function StudentActionPages({ mode }: { mode: "exams" | "results" }) {
                       <button
                         className="button button-primary"
                         disabled={blocked || scheduled}
-                        onClick={() => router.push(ongoing || payload.student.testCandidate ? `/exam/${exam.id}` : `/student/payment/${exam.id}`)}
+                        onClick={() => router.push(ongoing ? `/exam/${exam.id}` : `/student/payment/${exam.id}`)}
                       >
                         {ongoing ? "Continue exam" : scheduled ? "Not started" : "Start exam"}
                         <ArrowRight size={14} />

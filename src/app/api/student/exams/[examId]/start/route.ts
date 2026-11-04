@@ -27,14 +27,12 @@ export async function POST(request: NextRequest, context: Context) {
     const exam = groupAssignment ? await db.collection("exams").findOne({ _id: examId, published: true }) : null;
     if (!exam || !student) return NextResponse.json({ error: "This examination is not assigned to this student." }, { status: 404 });
     const studentId = String(student.id ?? student._id);
-    if (!student.test_candidate) {
-      const payment = await db.collection("examPaymentSubmissions").findOne({
-        exam_id: examId,
-        student_id: studentId,
-        status: { $in: ["verified", "pending"] },
-      });
-      if (!payment) return NextResponse.json({ error: "Please enter your payment details before exam access." }, { status: 402 });
-    }
+    const payment = await db.collection("examPaymentSubmissions").findOne({
+      exam_id: examId,
+      student_id: studentId,
+      status: { $in: ["verified", "pending"] },
+    });
+    if (!payment) return NextResponse.json({ error: "Please select Cash / Offline or Online Payment before exam access." }, { status: 402 });
     const now = new Date();
     if (exam.starts_at && now < new Date(exam.starts_at)) return NextResponse.json({ error: "This exam has not started yet." }, { status: 409 });
     const scheduledEnd = exam.ends_at ? new Date(exam.ends_at) : null;

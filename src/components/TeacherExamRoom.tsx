@@ -1,51 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Mic, MicOff, Users } from "lucide-react";
+import { useEffect } from "react";
+import { Users } from "lucide-react";
 import { ExamRoomVideoTile } from "@/components/ExamRoomVideoTile";
 import { useExamVideoRoom } from "@/lib/use-exam-video-room";
 
-export function TeacherExamRoom({ attemptId, studentName, className, rollNumber }: { attemptId: string; studentName: string; className: string; rollNumber: string }) {
-  const [audioTrack, setAudioTrack] = useState<MediaStreamTrack | null>(null);
-  const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
-  const [error, setError] = useState("");
+export function TeacherExamRoom({ attemptId, studentName, className, rollNumber, audioTrack, microphoneEnabled }: { attemptId: string; studentName: string; className: string; rollNumber: string; audioTrack: MediaStreamTrack | null; microphoneEnabled: boolean }) {
   const { remoteVideos, error: roomError, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, null, "teacher");
   const studentVideo = remoteVideos.find(participant => participant.role === "candidate");
 
-  useEffect(() => () => audioTrack?.stop(), [audioTrack]);
-
-  const toggleMicrophone = async () => {
-    setError("");
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setMicrophoneEnabled(audioTrack.enabled);
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Microphone access requires a secure HTTPS connection.");
-      return;
-    }
-
-    try {
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
-      const track = audioStream.getAudioTracks()[0];
-      if (!track) throw new Error("No microphone was found.");
-      track.enabled = true;
-      setAudioTrack(track);
-      await setOutgoingAudioTrack(track);
-      setMicrophoneEnabled(true);
-    } catch (cause) {
-      const errorName = cause instanceof DOMException ? cause.name : "";
-      if (errorName === "NotAllowedError" || errorName === "SecurityError") {
-        setError("Microphone permission denied. Allow microphone access in browser site settings, then try again.");
-      } else if (errorName === "NotFoundError") {
-        setError("No microphone was found. Connect a microphone and try again.");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Could not enable the microphone.");
-      }
-    }
-  };
+  useEffect(() => { void setOutgoingAudioTrack(audioTrack); }, [audioTrack, setOutgoingAudioTrack]);
 
   return (
     <article style={{ minWidth: 0, overflow: "hidden", border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff" }}>
@@ -58,11 +22,9 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber 
         {studentVideo && <ExamRoomVideoTile stream={studentVideo.stream} label={`Student · ${studentVideo.displayName}`} muted />}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "0 10px 10px" }}>
-        <button type="button" className="button button-secondary" onClick={() => void toggleMicrophone()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          {microphoneEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
-        </button>
+        <small style={{ color: microphoneEnabled ? "#15803d" : "#64748b" }}>{microphoneEnabled ? "Teacher audio is on for all active students" : "Teacher audio is muted"}</small>
       </div>
-      {(error || roomError) && <small role="status" style={{ display: "block", padding: "0 10px 10px", color: "#b91c1c" }}>{error || roomError}</small>}
+      {roomError && <small role="status" style={{ display: "block", padding: "0 10px 10px", color: "#b91c1c" }}>{roomError}</small>}
     </article>
   );
 }
