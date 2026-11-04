@@ -20,6 +20,7 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
 
   useEffect(() => {
     let stopped = false;
+    let polling = false;
     let cursor = "";
     let needsIceServers = true;
     const callId = crypto.randomUUID();
@@ -67,12 +68,14 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
       }
     };
     const poll = async () => {
+      if (polling || stopped) return;
+      polling = true;
       try {
         const query = new URLSearchParams({ callId, after: cursor });
         if (needsIceServers) query.set("includeIceServers", "1");
         const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}?${query}`, { cache: "no-store" });
         if (!response.ok) {
-          setStatus(response.status === 403 ? "This exam attempt is no longer active." : "Waiting for video connection…");
+          setStatus(response.status === 403 ? "Exam attempt is no longer active or this teacher session is unauthorized." : `Could not contact the exam session (${response.status}). Retrying…`);
           return;
         }
         const data = await response.json() as { messages?: Signal[]; iceServers?: RTCIceServer[] };
@@ -93,7 +96,11 @@ export function TeacherCandidateVideo({ attemptId, studentName, className, rollN
             else pendingIce.push(candidate);
           }
         }
-      } catch { setStatus("Reconnecting to candidate…"); }
+      } catch (error) {
+        setStatus(error instanceof Error ? `Video signaling error: ${error.message}` : "Reconnecting to candidate…");
+      } finally {
+        polling = false;
+      }
     };
     void poll();
     const timer = window.setInterval(() => { if (!stopped) void poll(); }, 800);

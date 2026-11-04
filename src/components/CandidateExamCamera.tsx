@@ -6,10 +6,11 @@ import { getExamRtcConfiguration } from "@/lib/exam-rtc";
 type Signal = { id: string; callId: string; type: "offer" | "answer" | "ice" | "close"; payload: RTCSessionDescriptionInit | RTCIceCandidateInit | null };
 
 async function sendSignal(attemptId: string, callId: string, type: Signal["type"], payload?: Signal["payload"]) {
-  await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}`, {
+  const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ callId, type, ...(payload === undefined ? {} : { payload }) }),
   });
+  if (!response.ok) throw new Error(`Video signaling was rejected (${response.status}).`);
 }
 
 export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; stream: MediaStream }) {
@@ -19,6 +20,7 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
   useEffect(() => {
     if (preview.current) preview.current.srcObject = stream;
     let stopped = false;
+    let polling = false;
     let cursor = "";
     let activeCallId = "";
     let peer: RTCPeerConnection | null = null;
@@ -42,11 +44,16 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
       return connection;
     };
     const poll = async () => {
+      if (polling || stopped) return;
+      polling = true;
       try {
         const query = new URLSearchParams({ callId: activeCallId, after: cursor });
         if (needsIceServers) query.set("includeIceServers", "1");
         const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}?${query}`, { cache: "no-store" });
-        if (!response.ok) return;
+        if (!response.ok) {
+          setStatus(response.status === 403 ? "Exam session is no longer active or authorized for video." : `Could not contact the teacher (${response.status}). Retrying…`);
+          return;
+        }
         const data = await response.json() as { callId?: string; messages?: Signal[]; iceServers?: RTCIceServer[] };
         if (data.iceServers) {
           iceServers = data.iceServers;
@@ -64,6 +71,7 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
             peer?.close(); peer = null; pendingIce = [];
             setStatus("Camera on · waiting for teacher");
           } else if (message.type === "offer" && message.payload) {
+            setStatus("Teacher found · connecting video…");
             const connection = createPeer(iceServers);
             await connection.setRemoteDescription(message.payload as RTCSessionDescriptionInit);
             for (const candidate of pendingIce) await connection.addIceCandidate(candidate);
@@ -78,7 +86,11 @@ export function CandidateExamCamera({ attemptId, stream }: { attemptId: string; 
             else pendingIce.push(candidate);
           }
         }
-      } catch { /* retry on the next short polling interval */ }
+      } catch (error) {
+        setStatus(error instanceof Error ? `${error.message} Retrying…` : "Video connection failed. Retrying…");
+      } finally {
+        polling = false;
+      }
     };
     void poll();
     const timer = window.setInterval(() => { if (!stopped) void poll(); }, 800);
