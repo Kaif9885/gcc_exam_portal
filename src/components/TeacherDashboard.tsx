@@ -125,6 +125,7 @@ export function TeacherDashboard() {
 
   // Live Sessions State
   const [sessions, setSessions] = useState<LiveSessionRow[]>([]);
+  const [examTimesClassFilter, setExamTimesClassFilter] = useState("all");
   const [sessionStats, setSessionStats] = useState({ active: 0, submitted: 0, total: 0 });
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [monitorViewers, setMonitorViewers] = useState<MonitorViewer[]>([]);
@@ -413,6 +414,11 @@ export function TeacherDashboard() {
       row.studentCode.toLowerCase().includes(term);
     return matchesClass && matchesSearch;
   });
+
+  const examTimesClasses = [...new Set(sessions.map(session => session.className))].sort((a, b) => a.localeCompare(b));
+  const examTimesSessions = examTimesClassFilter === "all"
+    ? sessions
+    : sessions.filter(session => session.className === examTimesClassFilter);
 
   const initials = teacherName
     .split(" ")
@@ -988,16 +994,24 @@ export function TeacherDashboard() {
                 <span>{sessionsLoading ? "Refreshing…" : "Refresh"}</span>
               </button>
             </div>
-            {sessions.length ? (
+            <div className="results-filter" style={{ marginBottom: 14, border: "1px solid #e8edf5", borderRadius: 8 }}>
+              <label htmlFor="exam-times-class-filter" style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>Class</label>
+              <select id="exam-times-class-filter" value={examTimesClassFilter} onChange={event => setExamTimesClassFilter(event.target.value)}>
+                <option value="all">All classes ({sessions.length})</option>
+                {examTimesClasses.map(className => <option key={className} value={className}>{className} ({sessions.filter(session => session.className === className).length})</option>)}
+              </select>
+              <span>{examTimesSessions.length} attempts</span>
+            </div>
+            {examTimesSessions.length ? (
               <div className="results-panel">
                 <div className="results-toolbar">
                   <div><h3>Exam attempt times</h3><p>Auto-refreshes every 12 seconds. A dash means the attempt has not been submitted.</p></div>
-                  <span>{sessions.length} attempts</span>
+                  <span>{examTimesSessions.length} attempts</span>
                 </div>
                 <div className="results-table-wrap">
                   <table className="results-table">
                     <thead><tr><th>STUDENT</th><th>CLASS</th><th>EXAM</th><th>STATUS</th><th>START DATE</th><th>START TIME</th><th>SUBMIT DATE</th><th>SUBMIT TIME</th></tr></thead>
-                    <tbody>{sessions.map(session => (
+                    <tbody>{examTimesSessions.map(session => (
                       <tr key={session.id}>
                         <td><b>{session.studentName}</b>{session.testCandidate && <small style={{ display: "block", color: "#b45309", fontWeight: 700 }}>TEST CANDIDATE</small>}<small>Roll: {session.rollNumber}</small></td>
                         <td>{session.className}</td>
@@ -1013,7 +1027,7 @@ export function TeacherDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="empty-exams"><Clock3 size={18}/><span>{sessionsLoading ? "Loading exam attempts…" : "No student examination sessions found."}</span></div>
+              <div className="empty-exams"><Clock3 size={18}/><span>{sessionsLoading ? "Loading exam attempts…" : sessions.length ? `No exam attempts found for ${examTimesClassFilter}.` : "No student examination sessions found."}</span></div>
             )}
           </section>
         )}
