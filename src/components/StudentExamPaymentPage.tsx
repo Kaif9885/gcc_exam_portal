@@ -19,6 +19,7 @@ export function StudentExamPaymentPage() {
   const [payerName, setPayerName] = useState("");
   const [paidAt, setPaidAt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "online" | null>(null);
+  const [changingPayment, setChangingPayment] = useState(false);
   const [onlinePaymentDone, setOnlinePaymentDone] = useState(false);
   const [onlineScannerOpen, setOnlineScannerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -40,10 +41,6 @@ export function StudentExamPaymentPage() {
       .then(payload => {
         if (active && payload) {
           setData(payload);
-          // If payment details were already submitted, directly open the questions
-          if (payload.payment?.status === "verified" || payload.payment?.status === "pending") {
-            router.replace(`/exam/${encodeURIComponent(examId)}`);
-          }
         }
       })
       .catch(cause => {
@@ -106,9 +103,19 @@ export function StudentExamPaymentPage() {
           <>
             <h2>{paymentMethod === "online" && onlinePaymentDone ? "Online Payment Details" : "Pay ₹20 to continue"}</h2>
             <p className="payment-instructions">{formatDisplayText(data.exam.title)}</p>
-            {paymentMethod === null && (
+            {paymentMethod === null && data.payment && !changingPayment ? (
+              <div className="exam-auth-notice payment-status-verified">
+                <CheckCircle2 size={18} />
+                <div>
+                  <b>{data.payment.status === "verified" ? "Payment verified" : "Payment details submitted"}</b>
+                  <span>{data.payment.method === "cash" ? "Cash / Offline" : "Online Payment"} · {data.payment.status === "pending" ? "awaiting staff verification" : "ready"}</span>
+                  <button type="button" onClick={() => router.push(`/exam/${encodeURIComponent(examId)}`)}>Continue to exam</button>
+                  {data.payment.status === "pending" && <button type="button" onClick={() => setChangingPayment(true)}>Change payment method</button>}
+                </div>
+              </div>
+            ) : paymentMethod === null && (
               <>
-                <p className="payment-upi-instructions">Choose a payment method to continue.</p>
+                <p className="payment-upi-instructions">{changingPayment ? "Choose a payment method to update your pending details." : "Choose a payment method to continue."}</p>
                 <div className="payment-method-options" role="group" aria-label="Payment method">
                   <button type="button" className="button payment-method-cash" disabled={busy} onClick={() => void submitPayment("cash", data.student.fullName, new Date())}>Cash / Offline</button>
                   <button type="button" className="button payment-method-online" disabled={busy} onClick={() => { setPaymentMethod("online"); setOnlinePaymentDone(false); setOnlineScannerOpen(true); }}>Online Payment</button>
@@ -136,18 +143,7 @@ export function StudentExamPaymentPage() {
               </div>
             )}
             {error && <div className="notice warning" role="alert">{error}</div>}
-            {data.payment?.status === "verified" || data.payment?.status === "pending" ? (
-              <div className="exam-auth-notice payment-status-verified">
-                <CheckCircle2 size={18} />
-                <div>
-                  <b>Payment confirmed</b>
-                  <span>Direct exam access enabled. Opening questions...</span>
-                  <button type="button" onClick={() => router.push(`/exam/${encodeURIComponent(examId)}`)}>
-                    Open questions
-                  </button>
-                </div>
-              </div>
-            ) : paymentMethod === "online" && onlinePaymentDone ? (
+            {paymentMethod === "online" && onlinePaymentDone && (
               <section className="online-payment-details">
                 <p className="payment-upi-instructions">Enter the payer name and payment time to continue to the exam.</p>
                 <form className="lookup-form payment-confirm-form" onSubmit={submitOnline}>
@@ -174,7 +170,7 @@ export function StudentExamPaymentPage() {
                   </button>
                 </form>
               </section>
-            ) : null}
+            )}
           </>
         )}
         <footer className="lookup-footer">

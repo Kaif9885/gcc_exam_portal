@@ -22,7 +22,7 @@ import { TeacherExamRoom } from "@/components/TeacherExamRoom";
 import { formatExamDateTime, getExamScheduleStatus } from "@/lib/format-exam-schedule";
 import { formatDisplayText } from "@/lib/format-display";
 
-type TeacherTab = "results" | "papers" | "sessions" | "students";
+type TeacherTab = "results" | "papers" | "sessions" | "times" | "students";
 
 type TeacherResult = {
   id: string;
@@ -284,9 +284,9 @@ export function TeacherDashboard() {
     if (tab === "students") void loadStudents();
   }, [tab, loadResults, loadPapers, loadSessions, loadStudents]);
 
-  // Periodic refresh for live sessions
+  // Periodic refresh for live sessions and the exam-time report.
   useEffect(() => {
-    if (tab !== "sessions") return;
+    if (tab !== "sessions" && tab !== "times") return;
     void loadSessions();
     const interval = window.setInterval(() => {
       void loadSessions();
@@ -432,6 +432,14 @@ export function TeacherDashboard() {
                   {sessionStats.active}
                 </span>
               )}
+            </button>
+
+            <button
+              className={`admin-nav-item ${tab === "times" ? "active" : ""}`}
+              onClick={() => switchTab("times")}
+            >
+              <Clock3 size={17} />
+              <span>Exam Start / Submit Times</span>
             </button>
 
             <button
@@ -912,6 +920,47 @@ export function TeacherDashboard() {
                 </div>
               )}
             </div>
+          </section>
+        )}
+
+        {tab === "times" && (
+          <section>
+            <div className="admin-header">
+              <div>
+                <span className="eyebrow">STUDENT EXAM TIMESTAMPS</span>
+                <h1>Exam Start &amp; Submit Times</h1>
+                <p>See when each student started and submitted an exam. Times use this device’s local timezone.</p>
+              </div>
+              <button className="button button-secondary compact-button" onClick={() => void loadSessions()} disabled={sessionsLoading}>
+                <RefreshCw size={13} />
+                <span>{sessionsLoading ? "Refreshing…" : "Refresh"}</span>
+              </button>
+            </div>
+            {sessions.length ? (
+              <div className="results-panel">
+                <div className="results-toolbar">
+                  <div><h3>Exam attempt times</h3><p>Auto-refreshes every 12 seconds. A dash means the attempt has not been submitted.</p></div>
+                  <span>{sessions.length} attempts</span>
+                </div>
+                <div className="results-table-wrap">
+                  <table className="results-table">
+                    <thead><tr><th>STUDENT</th><th>CLASS</th><th>EXAM</th><th>STATUS</th><th>STARTED AT</th><th>SUBMITTED AT</th></tr></thead>
+                    <tbody>{sessions.map(session => (
+                      <tr key={session.id}>
+                        <td><b>{session.studentName}</b>{session.testCandidate && <small style={{ display: "block", color: "#b45309", fontWeight: 700 }}>TEST CANDIDATE</small>}<small>Roll: {session.rollNumber}</small></td>
+                        <td>{session.className}</td>
+                        <td><b>{formatDisplayText(session.examTitle)}</b><small>{session.subject}</small></td>
+                        <td><span className={`result-status ${session.status === "submitted" ? "passed" : session.status === "in_progress" ? "pending" : "failed"}`}>{session.status.replaceAll("_", " ")}</span></td>
+                        <td><small>{new Date(session.startedAt).toLocaleString()}</small></td>
+                        <td><small>{session.submittedAt ? new Date(session.submittedAt).toLocaleString() : "—"}</small></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-exams"><Clock3 size={18}/><span>{sessionsLoading ? "Loading exam attempts…" : "No student examination sessions found."}</span></div>
+            )}
           </section>
         )}
 
