@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -806,6 +806,23 @@ export function TeacherDashboard() {
                 <span>{sessions.length} sessions</span>
               </div>
 
+              <section aria-label="Live candidate videos" style={{ margin: "0 16px 20px", padding: 16, border: "1px solid #dbe3ef", borderRadius: 14, background: "#f8fafc" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <h3 style={{ margin: 0 }}>Live candidate videos</h3>
+                    <p style={{ margin: "5px 0 0", color: "#64748b" }}>Active exam cameras appear together here with each student’s name and class.</p>
+                  </div>
+                  <span className="result-status pending">{sessions.filter(s => s.status === "in_progress").length} live</span>
+                </div>
+                {sessions.some(s => s.status === "in_progress") ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 14 }}>
+                    {sessions.filter(s => s.status === "in_progress").map(s => (
+                      <TeacherCandidateVideo key={s.id} attemptId={s.id} studentName={s.studentName} className={s.className} rollNumber={s.rollNumber} />
+                    ))}
+                  </div>
+                ) : <p style={{ margin: 0, padding: "18px 10px", textAlign: "center", color: "#64748b" }}>No active candidate cameras right now.</p>}
+              </section>
+
               {sessions.length ? (
                 <div className="results-table-wrap">
                   <table className="results-table">
@@ -824,8 +841,7 @@ export function TeacherDashboard() {
                     </thead>
                     <tbody>
                       {sessions.map(s => (
-                        <Fragment key={s.id}>
-                        <tr>
+                        <tr key={s.id}>
                           <td>
                             <b>{s.studentName}</b>
                             {s.testCandidate && <small style={{ display: "block", color: "#b45309", fontWeight: 700 }}>TEST CANDIDATE</small>}
@@ -885,10 +901,6 @@ export function TeacherDashboard() {
                             )}
                           </td>
                         </tr>
-                        {s.status === "in_progress" && (
-                          <tr><td colSpan={9}><TeacherCandidateVideo attemptId={s.id} studentName={s.studentName} /></td></tr>
-                        )}
-                        </Fragment>
                       ))}
                     </tbody>
                   </table>
