@@ -114,6 +114,13 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
           });
           return;
         }
+        event.track.onmute = () => {
+          window.setTimeout(() => {
+            if (connections.get(participant.participantId) === connection && event.track.muted) {
+              closePeer(participant.participantId);
+            }
+          }, 2500);
+        };
         const peerInfo = participants.get(participant.participantId) ?? participant;
         setRemoteVideos(current => {
           const next = current.filter(item => item.participantId !== peerInfo.participantId);
@@ -123,6 +130,9 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
       };
       connection.onconnectionstatechange = () => {
         if (!stopped) setIsLive([...connections.values()].some(peer => peer.connectionState === "connected"));
+        if ((connection.connectionState === "failed" || connection.connectionState === "closed") && connections.get(participant.participantId) === connection) {
+          closePeer(participant.participantId);
+        }
       };
       connection.oniceconnectionstatechange = () => {
         if (connection.iceConnectionState === "failed") {

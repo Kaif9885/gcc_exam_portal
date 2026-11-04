@@ -6,9 +6,15 @@ export function ExamRoomVideoTile({ stream, label, muted = false }: { stream: Me
   const video = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!video.current) return;
-    video.current.srcObject = stream;
-    void video.current.play().catch(() => undefined);
+    const element = video.current;
+    if (!element) return;
+    element.srcObject = stream;
+    const resumePlayback = () => { void element.play().catch(() => undefined); };
+    stream.getVideoTracks().forEach(track => {
+      track.addEventListener("unmute", resumePlayback);
+    });
+    resumePlayback();
+    return () => stream.getVideoTracks().forEach(track => track.removeEventListener("unmute", resumePlayback));
   }, [stream]);
 
   return (
