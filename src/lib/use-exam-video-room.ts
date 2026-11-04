@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ExamRoomParticipant = {
   participantId: string;
@@ -33,26 +33,38 @@ async function sendRoomSignal(attemptId: string, sessionId: string, targetId: st
   if (!response.ok) throw new Error("Could not exchange live-room connection data.");
 }
 
-export function useExamVideoRoom(attemptId: string, localStream: MediaStream | null) {
+export function useExamVideoRoom(attemptId: string, localStream: MediaStream | null, role: "candidate" | "teacher") {
   const [remoteVideos, setRemoteVideos] = useState<RemoteExamVideo[]>([]);
+  const [remoteAudioStreams, setRemoteAudioStreams] = useState<{ participantId: string; stream: MediaStream }[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState("");
+  const connectionsRef = useRef(new Map<string, RTCPeerConnection>());
+  const outgoingAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+
+  const setOutgoingAudioTrack = useCallback(async (track: MediaStreamTrack | null) => {
+    outgoingAudioTrackRef.current = track;
+    await Promise.all([...connectionsRef.current.values()].map(async connection => {
+      const sender = connection.getTransceivers().find(transceiver => transceiver.receiver.track.kind === "audio")?.sender;
+      if (sender) await sender.replaceTrack(track);
+    }));
+  }, []);
 
   useEffect(() => {
-    if (!localStream) {
+    if (role === "candidate" && !localStream) {
       setRemoteVideos([]);
       setIsLive(false);
+      setRemoteAudioStreams([]);
       return;
     }
 
     let stopped = false;
     let polling = false;
     let cursor = "";
-    let localParticipantId = "";
     let needsIceServers = true;
     let iceServers: RTCIceServer[] = [];
     const sessionId = crypto.randomUUID();
     const connections = new Map<string, RTCPeerConnection>();
+    connectionsRef.current = connections;
     const participants = new Map<string, ExamRoomParticipant>();
     const pendingIce = new Map<string, RTCIceCandidateInit[]>();
 
@@ -63,8 +75,10 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
     const closePeer = (participantId: string) => {
       connections.get(participantId)?.close();
       connections.delete(participantId);
+      if (connectionsRef.current === connections) connectionsRef.current.delete(participantId);
       pendingIce.delete(participantId);
       removeRemoteVideo(participantId);
+      setRemoteAudioStreams(current => current.filter(item => item.participantId !== participantId));
     };
 
     const createPeer = (participant: ExamRoomParticipant) => {
@@ -74,7 +88,13 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
       });
       connections.set(participant.participantId, connection);
       participants.set(participant.participantId, participant);
-      localStream.getTracks().forEach(track => connection.addTrack(track, localStream));
+      if (role === "candidate" && localStream) {
+        localStream.getVideoTracks().forEach(track => connection.addTrack(track, localStream));
+      } else if (role === "teacher") {
+        connection.addTransceiver("video", { direction: "recvonly" });
+        const audio = connection.addTransceiver("audio", { direction: "sendonly" });
+        void audio.sender.replaceTrack(outgoingAudioTrackRef.current);
+      }
       connection.onicecandidate = event => {
         if (event.candidate) {
           void sendRoomSignal(attemptId, sessionId, participant.participantId, "ice", event.candidate.toJSON()).catch(cause => {
@@ -84,6 +104,14 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
       };
       connection.ontrack = event => {
         const stream = event.streams[0] ?? new MediaStream([event.track]);
+        if (event.track.kind === "audio") {
+          setRemoteAudioStreams(current => {
+            const next = current.filter(item => item.participantId !== participant.participantId);
+            next.push({ participantId: participant.participantId, stream });
+            return next;
+          });
+          return;
+        }
         const peerInfo = participants.get(participant.participantId) ?? participant;
         setRemoteVideos(current => {
           const next = current.filter(item => item.participantId !== peerInfo.participantId);
@@ -111,22 +139,23 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
         const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}?${query}`, { cache: "no-store" });
         if (!response.ok) throw new Error(`Live room is unavailable (${response.status}).`);
         const data = await response.json() as RoomResponse;
-        localParticipantId = data.participantId;
         if (Array.isArray(data.iceServers)) {
           iceServers = data.iceServers;
           needsIceServers = false;
         }
         setError("");
 
-        const activeIds = new Set(data.peers.map(peer => peer.participantId));
+        const expectedRole = role === "candidate" ? "teacher" : "candidate";
+        const roomPeers = data.peers.filter(peer => peer.role === expectedRole);
+        const activeIds = new Set(roomPeers.map(peer => peer.participantId));
         for (const participantId of connections.keys()) {
           if (!activeIds.has(participantId)) closePeer(participantId);
         }
-        for (const participant of data.peers) {
+        for (const participant of roomPeers) {
           participants.set(participant.participantId, participant);
           if (connections.has(participant.participantId)) continue;
           const connection = createPeer(participant);
-          if (localParticipantId.localeCompare(participant.participantId) < 0) {
+          if (role === "teacher") {
             const offer = await connection.createOffer();
             await connection.setLocalDescription(offer);
             await sendRoomSignal(attemptId, sessionId, participant.participantId, "offer", connection.localDescription?.toJSON() ?? offer);
@@ -168,13 +197,14 @@ export function useExamVideoRoom(attemptId: string, localStream: MediaStream | n
       window.clearInterval(timer);
       for (const connection of connections.values()) connection.close();
       connections.clear();
+      if (connectionsRef.current === connections) connectionsRef.current = new Map();
       void fetch(`/api/exam-video/${encodeURIComponent(attemptId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "leave", sessionId }),
       }).catch(() => undefined);
     };
-  }, [attemptId, localStream]);
+  }, [attemptId, localStream, role]);
 
-  return { remoteVideos, isLive, error };
+  return { remoteVideos, remoteAudioStreams, isLive, error, setOutgoingAudioTrack };
 }

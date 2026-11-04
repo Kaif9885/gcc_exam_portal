@@ -15,7 +15,7 @@ For local development and the live deployment to share one database, set the exa
 | `exams`, `examGroupAssignments` | Exam settings, schedule, publication state and class assignment. |
 | `questions`, `questionOptions` | Question content and private answer-key flags. Never return correctness flags from student APIs. |
 | `examAttempts`, `studentAnswers`, `examWarnings` | Attempt lifecycle, saved choices, timers/session tokens and focus warnings. |
-| `examVideoParticipants`, `examVideoSignals` | Short-lived presence and private WebRTC signaling for authorized live exam rooms; media is peer-to-peer and is not stored by the app. |
+| `examVideoParticipants`, `examVideoSignals` | Short-lived presence and private WebRTC signaling for an active exam attempt; consenting student video is sent to authorized teachers, who may send microphone audio back. Media is peer-to-peer and is not stored by the app. |
 | `results` | Graded outcomes and marks, constrained to student ownership in APIs. |
 | `examPaymentSubmissions` | ₹20 claims, payer details and staff review state. A claim alone never grants access. |
 | `auditLogs` | Administrative and exam activity history. |

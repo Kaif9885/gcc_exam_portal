@@ -1,73 +1,50 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, Mic, MicOff, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Mic, MicOff, Users } from "lucide-react";
 import { ExamRoomVideoTile } from "@/components/ExamRoomVideoTile";
 import { useExamVideoRoom } from "@/lib/use-exam-video-room";
 
 export function TeacherExamRoom({ attemptId, studentName, className, rollNumber }: { attemptId: string; studentName: string; className: string; rollNumber: string }) {
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [joining, setJoining] = useState(false);
+  const [audioTrack, setAudioTrack] = useState<MediaStreamTrack | null>(null);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
-  const [microphoneAvailable, setMicrophoneAvailable] = useState(false);
   const [error, setError] = useState("");
-  const preview = useRef<HTMLVideoElement>(null);
-  const { remoteVideos, error: roomError } = useExamVideoRoom(attemptId, localStream);
+  const { remoteVideos, error: roomError, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, null, "teacher");
+  const studentVideo = remoteVideos.find(participant => participant.role === "candidate");
 
-  useEffect(() => {
-    if (preview.current && localStream) preview.current.srcObject = localStream;
-  }, [localStream]);
+  useEffect(() => () => audioTrack?.stop(), [audioTrack]);
 
-  useEffect(() => () => localStream?.getTracks().forEach(track => track.stop()), [localStream]);
-
-  const joinRoom = async () => {
+  const toggleMicrophone = async () => {
     setError("");
-    setJoining(true);
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      setMicrophoneEnabled(audioTrack.enabled);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Microphone access requires a secure HTTPS connection.");
+      return;
+    }
+
     try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access requires a secure HTTPS connection.");
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: { echoCancellation: true, noiseSuppression: true },
-        });
-        setMicrophoneAvailable(true);
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-        setMicrophoneAvailable(false);
-        setError("Camera joined, but microphone access was denied. Allow microphone permission in browser site settings, then leave and rejoin to enable voice.");
-      }
-      stream.getAudioTracks().forEach(track => { track.enabled = false; });
-      setMicrophoneEnabled(false);
-      setLocalStream(stream);
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+      const track = audioStream.getAudioTracks()[0];
+      if (!track) throw new Error("No microphone was found.");
+      track.enabled = true;
+      setAudioTrack(track);
+      await setOutgoingAudioTrack(track);
+      setMicrophoneEnabled(true);
     } catch (cause) {
       const errorName = cause instanceof DOMException ? cause.name : "";
       if (errorName === "NotAllowedError" || errorName === "SecurityError") {
-        setError("Camera permission denied. Allow camera access for this site in browser settings, then reload. Camera access requires HTTPS or localhost.");
+        setError("Microphone permission denied. Allow microphone access in browser site settings, then try again.");
       } else if (errorName === "NotFoundError") {
-        setError("No camera was found. Connect a camera and try again.");
-      } else if (errorName === "NotReadableError") {
-        setError("The camera is busy in another app or tab. Close it there and try again.");
+        setError("No microphone was found. Connect a microphone and try again.");
       } else {
-        setError(cause instanceof Error ? cause.message : "Could not join the live room.");
+        setError(cause instanceof Error ? cause.message : "Could not enable the microphone.");
       }
-    } finally {
-      setJoining(false);
     }
-  };
-
-  const toggleMicrophone = () => {
-    const track = localStream?.getAudioTracks()[0];
-    if (!track) return;
-    track.enabled = !track.enabled;
-    setMicrophoneEnabled(track.enabled);
-  };
-
-  const leaveRoom = () => {
-    localStream?.getTracks().forEach(track => track.stop());
-    setLocalStream(null);
-    setMicrophoneEnabled(false);
-    setMicrophoneAvailable(false);
   };
 
   return (
@@ -75,36 +52,15 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber 
       <header style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>
         <b>{studentName}</b>
         <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>{className} · Roll {rollNumber}</small>
-        <small style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, color: "#64748b" }}><Users size={14}/>{remoteVideos.length} other participant{remoteVideos.length === 1 ? "" : "s"} joined</small>
-        {!localStream && <small style={{ display: "block", marginTop: 6, color: "#64748b" }}>Joining shares your camera with the student and joined teachers. Your microphone starts muted.</small>}
+        <small style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, color: "#64748b" }}><Users size={14}/>{studentVideo ? "Student video connected" : "Waiting for student video…"}</small>
       </header>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, padding: 10 }}>
-        {localStream && <div style={{ minWidth: 0, overflow: "hidden", border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff" }}>
-          <video ref={preview} autoPlay muted playsInline aria-label="Your live camera" style={{ display: "block", width: "100%", aspectRatio: "16 / 9", objectFit: "cover", background: "#111" }} />
-          <div style={{ padding: "7px 10px", color: "#334155", fontSize: 13, fontWeight: 700 }}>You · Teacher</div>
-        </div>}
-        {remoteVideos.map(participant => (
-          <ExamRoomVideoTile
-            key={participant.participantId}
-            stream={participant.stream}
-            label={participant.role === "candidate" ? `Student · ${participant.displayName}` : `Teacher · ${participant.displayName}`}
-            muted={participant.role === "candidate"}
-          />
-        ))}
+        {studentVideo && <ExamRoomVideoTile stream={studentVideo.stream} label={`Student · ${studentVideo.displayName}`} muted />}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "0 10px 10px" }}>
-        {!localStream ? (
-          <button type="button" className="button button-primary" disabled={joining} onClick={() => void joinRoom()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Camera size={15}/>{joining ? "Joining live room…" : "Join live room"}
-          </button>
-        ) : <>
-          <button type="button" className="button button-secondary" disabled={!microphoneAvailable} onClick={toggleMicrophone} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {microphoneEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
-          </button>
-          <button type="button" className="button button-secondary" onClick={leaveRoom} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <CameraOff size={15}/>Leave live room
-          </button>
-        </>}
+        <button type="button" className="button button-secondary" onClick={() => void toggleMicrophone()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {microphoneEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
+        </button>
       </div>
       {(error || roomError) && <small role="status" style={{ display: "block", padding: "0 10px 10px", color: "#b91c1c" }}>{error || roomError}</small>}
     </article>

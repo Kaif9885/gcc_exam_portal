@@ -113,7 +113,7 @@ export async function POST(request: NextRequest, context: Context) {
       participant_id: body.targetId,
       last_seen: { $gte: new Date(now.getTime() - PRESENCE_TTL_MS) },
     });
-    if (!target || (viewer.role === "candidate" && target.role !== "teacher")) {
+    if (!target || target.role === viewer.role) {
       return NextResponse.json({ error: "Live-room participant is no longer available." }, { status: 404 });
     }
     const signals = viewer.db.collection("examVideoSignals");
