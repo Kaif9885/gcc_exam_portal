@@ -874,7 +874,7 @@ export function TeacherDashboard() {
                 </div>
                 <div className="teacher-audio-toolbar">
                   <button type="button" className={`button teacher-mic-button ${teacherMicEnabled ? "is-speaking" : ""}`} disabled={teacherMicPermissionDenied} onClick={() => void toggleTeacherMic()}>
-                    {teacherMicEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{teacherMicEnabled ? "Mute for all students" : "Speak to all active students"}
+                    {teacherMicEnabled ? <MicOff size={15}/> : <Mic size={15}/>}{teacherMicEnabled ? "Mute" : "Unmute"}
                   </button>
                   {teacherMicPermissionDenied && <button type="button" className="button teacher-mic-retry" onClick={() => { setTeacherMicPermissionDenied(false); setTeacherMicError(""); void toggleTeacherMic(); }}>Retry microphone</button>}
                   <small className="teacher-mic-status">{teacherMicEnabled ? "Your live voice is being sent to active exam sessions." : "Microphone muted for all students."}</small>

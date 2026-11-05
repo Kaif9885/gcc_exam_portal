@@ -28,7 +28,7 @@ export function CandidateExamRoom({ attemptId, stream }: { attemptId: string; st
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [teacherAudioEnabled, setTeacherAudioEnabled] = useState(false);
   const [audioError, setAudioError] = useState("");
-  const { isLive, remoteAudioStreams, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, stream, "candidate");
+  const { isLive, cameraPublished, error: roomError, remoteAudioStreams, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, stream, "candidate");
 
   const registerTeacherAudio = useCallback((element: HTMLAudioElement | null) => {
     if (element) teacherAudioElements.current.add(element);
@@ -83,10 +83,11 @@ export function CandidateExamRoom({ attemptId, stream }: { attemptId: string; st
       <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
         <video ref={preview} autoPlay muted playsInline aria-label="Your camera preview" style={{ width: 64, height: 48, flex: "0 0 auto", objectFit: "cover", borderRadius: 9, background: "#111", border: "1px solid #d6e5db" }} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <b style={{ display: "block", fontSize: 14, lineHeight: 1.3 }}>{isLive ? "Live video shared with teacher" : "Camera ready"}</b>
+          <b style={{ display: "block", fontSize: 14, lineHeight: 1.3 }}>{roomError ? "Camera connection needs attention" : cameraPublished ? "Camera streaming to exam room" : isLive ? "Connected · starting camera stream…" : "Connecting to live exam room…"}</b>
           <span style={{ display: "block", marginTop: 3, color: "#64748b", fontSize: 12 }}>Teacher voice {teacherAudioEnabled ? "is ready" : "will play when enabled"}</span>
         </div>
       </div>
+      {roomError && <small role="alert" style={{ display: "block", marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#fff1f2", color: "#b91c1c", fontSize: 12, lineHeight: 1.4 }}>{roomError}</small>}
       <button
         type="button"
         className="button"

@@ -5,27 +5,40 @@ import { Users, Volume2, VolumeX } from "lucide-react";
 import { ExamRoomVideoTile } from "@/components/ExamRoomVideoTile";
 import { useExamVideoRoom } from "@/lib/use-exam-video-room";
 
-function StudentAudio({ stream, muted }: { stream: MediaStream; muted: boolean }) {
-  const audio = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    const element = audio.current;
-    if (!element) return;
-    element.srcObject = stream;
-    element.muted = muted;
-    if (!muted) void element.play().catch(() => undefined);
-  }, [stream, muted]);
-
-  return <audio ref={audio} autoPlay={!muted} muted={muted} aria-label="Student reply audio" style={{ display: "none" }} />;
-}
-
 export function TeacherExamRoom({ attemptId, studentName, className, rollNumber, audioTrack, microphoneEnabled }: { attemptId: string; studentName: string; className: string; rollNumber: string; audioTrack: MediaStreamTrack | null; microphoneEnabled: boolean }) {
   const [studentAudioMuted, setStudentAudioMuted] = useState(true);
+  const [studentAudioError, setStudentAudioError] = useState("");
+  const studentAudioElement = useRef<HTMLAudioElement>(null);
   const { remoteVideos, remoteAudioStreams, error: roomError, setOutgoingAudioTrack } = useExamVideoRoom(attemptId, null, "teacher");
   const studentVideo = remoteVideos.find(participant => participant.role === "candidate");
   const studentAudio = remoteAudioStreams.find(participant => participant.participantId === studentVideo?.participantId);
 
   useEffect(() => { void setOutgoingAudioTrack(audioTrack); }, [audioTrack, setOutgoingAudioTrack]);
+  useEffect(() => {
+    const element = studentAudioElement.current;
+    if (!element || !studentAudio) return;
+    element.srcObject = studentAudio.stream;
+    element.muted = studentAudioMuted;
+    if (!studentAudioMuted) void element.play().catch(() => setStudentAudioError("Browser blocked audio playback. Press Hear student reply again."));
+  }, [studentAudio, studentAudioMuted]);
+
+  const toggleStudentAudio = () => {
+    const element = studentAudioElement.current;
+    if (!element) return;
+    setStudentAudioError("");
+    if (studentAudioMuted) {
+      // Start playback synchronously in the teacher's click handler for mobile autoplay policies.
+      element.srcObject = studentAudio?.stream ?? element.srcObject;
+      element.muted = false;
+      void element.play().then(() => setStudentAudioMuted(false)).catch(() => {
+        element.muted = true;
+        setStudentAudioError("Browser blocked audio playback. Check the device volume and press Hear student reply again.");
+      });
+    } else {
+      element.muted = true;
+      setStudentAudioMuted(true);
+    }
+  };
 
   return (
     <article style={{ minWidth: 0, overflow: "hidden", border: "1px solid #dbe3ef", borderRadius: 10, background: "#fff" }}>
@@ -39,11 +52,12 @@ export function TeacherExamRoom({ attemptId, studentName, className, rollNumber,
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "0 10px 10px" }}>
         <small style={{ color: microphoneEnabled ? "#15803d" : "#64748b" }}>{microphoneEnabled ? "Teacher audio is on for all active students" : "Teacher audio is muted"}</small>
-        {studentAudio && <button type="button" className="button button-secondary" onClick={() => setStudentAudioMuted(muted => !muted)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {studentVideo && <button type="button" className="button button-secondary" disabled={!studentAudio} onClick={toggleStudentAudio} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {studentAudioMuted ? <Volume2 size={15}/> : <VolumeX size={15}/>}{studentAudioMuted ? "Hear student reply" : "Mute student playback"}
         </button>}
       </div>
-      {studentAudio && <StudentAudio stream={studentAudio.stream} muted={studentAudioMuted} />}
+      {studentAudio && <audio ref={studentAudioElement} autoPlay={!studentAudioMuted} muted={studentAudioMuted} aria-label="Student reply audio" style={{ display: "none" }} />}
+      {studentAudioError && <small role="status" style={{ display: "block", padding: "0 10px 10px", color: "#b91c1c" }}>{studentAudioError}</small>}
       {roomError && <small role="status" style={{ display: "block", padding: "0 10px 10px", color: "#b91c1c" }}>{roomError}</small>}
     </article>
   );

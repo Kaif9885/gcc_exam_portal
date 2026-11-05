@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Room, RoomEvent, Track, type RemoteParticipant, type RemoteTrack } from "livekit-client";
 
 export type ExamRoomParticipant = {
   participantId: string;
@@ -8,215 +9,141 @@ export type ExamRoomParticipant = {
   displayName: string;
 };
 
-type RoomSignal = {
-  id: string;
-  fromId: string;
-  type: "offer" | "answer" | "ice";
-  payload: RTCSessionDescriptionInit | RTCIceCandidateInit;
-};
-
-type RoomResponse = {
-  participantId: string;
-  peers: ExamRoomParticipant[];
-  messages: RoomSignal[];
-  iceServers?: RTCIceServer[];
-};
-
 export type RemoteExamVideo = ExamRoomParticipant & { stream: MediaStream };
+type LiveKitRole = ExamRoomParticipant["role"];
+type LiveKitRoomResponse = { url: string; token: string; identity: string; role: LiveKitRole; error?: string };
 
-async function sendRoomSignal(attemptId: string, sessionId: string, targetId: string, type: RoomSignal["type"], payload: RoomSignal["payload"]) {
-  const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionId, targetId, type, payload }),
-  });
-  if (!response.ok) throw new Error("Could not exchange live-room connection data.");
-}
-
-export function useExamVideoRoom(attemptId: string, localStream: MediaStream | null, role: "candidate" | "teacher") {
+export function useExamVideoRoom(attemptId: string, localStream: MediaStream | null, role: LiveKitRole) {
   const [remoteVideos, setRemoteVideos] = useState<RemoteExamVideo[]>([]);
   const [remoteAudioStreams, setRemoteAudioStreams] = useState<{ participantId: string; stream: MediaStream }[]>([]);
   const [isLive, setIsLive] = useState(false);
+  const [cameraPublished, setCameraPublished] = useState(false);
   const [error, setError] = useState("");
-  const connectionsRef = useRef(new Map<string, RTCPeerConnection>());
+  const roomRef = useRef<Room | null>(null);
   const outgoingAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const publishedAudioRef = useRef<MediaStreamTrack | null>(null);
 
   const setOutgoingAudioTrack = useCallback(async (track: MediaStreamTrack | null) => {
     outgoingAudioTrackRef.current = track;
-    await Promise.all([...connectionsRef.current.values()].map(async connection => {
-      const sender = connection.getTransceivers().find(transceiver => transceiver.receiver.track.kind === "audio")?.sender;
-      if (sender) await sender.replaceTrack(track);
-    }));
+    const room = roomRef.current;
+    if (!room || room.state !== "connected") return;
+
+    const currentlyPublished = publishedAudioRef.current;
+    if (currentlyPublished && currentlyPublished !== track) {
+      await room.localParticipant.unpublishTrack(currentlyPublished, false);
+      publishedAudioRef.current = null;
+    }
+    if (track && publishedAudioRef.current !== track) {
+      await room.localParticipant.publishTrack(track, { source: Track.Source.Microphone });
+      publishedAudioRef.current = track;
+    }
+  }, []);
+
+  const startAudioPlayback = useCallback(async () => {
+    const room = roomRef.current;
+    if (room) await room.startAudio();
   }, []);
 
   useEffect(() => {
     if (role === "candidate" && !localStream) {
       setRemoteVideos([]);
-      setIsLive(false);
       setRemoteAudioStreams([]);
+      setIsLive(false);
+      setCameraPublished(false);
       return;
     }
 
     let stopped = false;
-    let polling = false;
-    let cursor = "";
-    let needsIceServers = true;
-    let iceServers: RTCIceServer[] = [];
-    const sessionId = crypto.randomUUID();
-    const connections = new Map<string, RTCPeerConnection>();
-    connectionsRef.current = connections;
-    const participants = new Map<string, ExamRoomParticipant>();
-    const pendingIce = new Map<string, RTCIceCandidateInit[]>();
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    const videoTracks = new Map<string, RemoteExamVideo>();
+    const audioTracks = new Map<string, MediaStream>();
+    roomRef.current = room;
 
-    const removeRemoteVideo = (participantId: string) => {
-      setRemoteVideos(current => current.filter(participant => participant.participantId !== participantId));
-    };
-
-    const closePeer = (participantId: string) => {
-      connections.get(participantId)?.close();
-      connections.delete(participantId);
-      if (connectionsRef.current === connections) connectionsRef.current.delete(participantId);
-      pendingIce.delete(participantId);
-      removeRemoteVideo(participantId);
-      setRemoteAudioStreams(current => current.filter(item => item.participantId !== participantId));
-    };
-
-    const createPeer = (participant: ExamRoomParticipant) => {
-      const connection = new RTCPeerConnection({
-        iceServers: iceServers.length ? iceServers : [{ urls: "stun:stun.l.google.com:19302" }],
-        iceTransportPolicy: "all",
-      });
-      connections.set(participant.participantId, connection);
-      participants.set(participant.participantId, participant);
-      if (role === "candidate" && localStream) {
-        localStream.getVideoTracks().forEach(track => connection.addTrack(track, localStream));
-        const audio = connection.addTransceiver("audio", { direction: "sendrecv" });
-        void audio.sender.replaceTrack(outgoingAudioTrackRef.current);
-      } else if (role === "teacher") {
-        connection.addTransceiver("video", { direction: "recvonly" });
-        const audio = connection.addTransceiver("audio", { direction: "sendrecv" });
-        void audio.sender.replaceTrack(outgoingAudioTrackRef.current);
+    const handleTrackSubscribed = (track: RemoteTrack, _publication: unknown, participant: RemoteParticipant) => {
+      let metadata: { role?: LiveKitRole } = {};
+      try { if (participant.metadata) metadata = JSON.parse(participant.metadata) as { role?: LiveKitRole }; } catch { /* use the safe teacher fallback */ }
+      const participantInfo: ExamRoomParticipant = {
+        participantId: participant.identity,
+        role: metadata.role === "candidate" ? "candidate" : "teacher",
+        displayName: participant.name || (metadata.role === "candidate" ? "Student" : "Teacher"),
+      };
+      const stream = new MediaStream([track.mediaStreamTrack]);
+      if (track.kind === Track.Kind.Video) {
+        videoTracks.set(participant.identity, { ...participantInfo, stream });
+        setRemoteVideos([...videoTracks.values()]);
+      } else {
+        audioTracks.set(participant.identity, stream);
+        setRemoteAudioStreams([...audioTracks].map(([participantId, remoteStream]) => ({ participantId, stream: remoteStream })));
       }
-      connection.onicecandidate = event => {
-        if (event.candidate) {
-          void sendRoomSignal(attemptId, sessionId, participant.participantId, "ice", event.candidate.toJSON()).catch(cause => {
-            if (!stopped) setError(cause instanceof Error ? cause.message : "Live-room network error.");
-          });
-        }
-      };
-      connection.ontrack = event => {
-        const stream = event.streams[0] ?? new MediaStream([event.track]);
-        if (event.track.kind === "audio") {
-          setRemoteAudioStreams(current => {
-            const next = current.filter(item => item.participantId !== participant.participantId);
-            next.push({ participantId: participant.participantId, stream });
-            return next;
-          });
-          return;
-        }
-        event.track.onmute = () => {
-          window.setTimeout(() => {
-            if (connections.get(participant.participantId) === connection && event.track.muted) {
-              closePeer(participant.participantId);
-            }
-          }, 2500);
-        };
-        const peerInfo = participants.get(participant.participantId) ?? participant;
-        setRemoteVideos(current => {
-          const next = current.filter(item => item.participantId !== peerInfo.participantId);
-          next.push({ ...peerInfo, stream });
-          return next;
-        });
-      };
-      connection.onconnectionstatechange = () => {
-        if (!stopped) setIsLive([...connections.values()].some(peer => peer.connectionState === "connected"));
-        if ((connection.connectionState === "failed" || connection.connectionState === "closed") && connections.get(participant.participantId) === connection) {
-          closePeer(participant.participantId);
-        }
-      };
-      connection.oniceconnectionstatechange = () => {
-        if (connection.iceConnectionState === "failed") {
-          if (!stopped) setError("A live-room network connection failed. Check the relay configuration.");
-        }
-      };
-      return connection;
     };
 
-    const poll = async () => {
-      if (polling || stopped) return;
-      polling = true;
+    const handleTrackUnsubscribed = (track: RemoteTrack, _publication: unknown, participant: RemoteParticipant) => {
+      track.detach();
+      if (track.kind === Track.Kind.Video) {
+        videoTracks.delete(participant.identity);
+        setRemoteVideos([...videoTracks.values()]);
+      } else {
+        audioTracks.delete(participant.identity);
+        setRemoteAudioStreams([...audioTracks].map(([participantId, stream]) => ({ participantId, stream })));
+      }
+    };
+
+    room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+    room.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
+    room.on(RoomEvent.Connected, () => { if (!stopped) { setIsLive(true); setError(""); } });
+    room.on(RoomEvent.Reconnected, () => { if (!stopped) { setIsLive(true); setError(""); } });
+    room.on(RoomEvent.Reconnecting, () => { if (!stopped) setIsLive(false); });
+    room.on(RoomEvent.Disconnected, () => {
+      setIsLive(false);
+      setCameraPublished(false);
+      setRemoteVideos([]);
+      setRemoteAudioStreams([]);
+    });
+    room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+      if (room.canPlaybackAudio) setError("");
+    });
+
+    const connect = async () => {
       try {
-        const query = new URLSearchParams({ sessionId, after: cursor });
-        if (needsIceServers) query.set("includeIceServers", "1");
-        const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}?${query}`, { cache: "no-store" });
-        if (!response.ok) throw new Error(`Live room is unavailable (${response.status}).`);
-        const data = await response.json() as RoomResponse;
-        if (Array.isArray(data.iceServers)) {
-          iceServers = data.iceServers;
-          needsIceServers = false;
-        }
-        setError("");
+        const response = await fetch(`/api/exam-video/${encodeURIComponent(attemptId)}/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: crypto.randomUUID() }),
+          cache: "no-store",
+        });
+        const data = await response.json() as LiveKitRoomResponse;
+        if (!response.ok) throw new Error(data.error || "Could not authorize the live exam connection.");
+        if (stopped) return;
+        await room.connect(data.url, data.token, { autoSubscribe: true });
 
-        const expectedRole = role === "candidate" ? "teacher" : "candidate";
-        const roomPeers = data.peers.filter(peer => peer.role === expectedRole);
-        const activeIds = new Set(roomPeers.map(peer => peer.participantId));
-        for (const participantId of connections.keys()) {
-          if (!activeIds.has(participantId)) closePeer(participantId);
-        }
-        for (const participant of roomPeers) {
-          participants.set(participant.participantId, participant);
-          if (connections.has(participant.participantId)) continue;
-          const connection = createPeer(participant);
-          if (role === "teacher") {
-            const offer = await connection.createOffer();
-            await connection.setLocalDescription(offer);
-            await sendRoomSignal(attemptId, sessionId, participant.participantId, "offer", connection.localDescription?.toJSON() ?? offer);
+        if (role === "candidate" && localStream) {
+          const cameraTrack = localStream.getVideoTracks()[0];
+          if (cameraTrack) {
+            await room.localParticipant.publishTrack(cameraTrack, { source: Track.Source.Camera, simulcast: true });
+            if (!stopped) setCameraPublished(true);
+          } else {
+            throw new Error("The camera is on, but no video track is available to stream.");
           }
         }
-
-        for (const message of data.messages) {
-          cursor = message.id;
-          const connection = connections.get(message.fromId);
-          if (!connection) continue;
-          if (message.type === "offer" && connection.signalingState === "stable") {
-            await connection.setRemoteDescription(message.payload as RTCSessionDescriptionInit);
-            for (const candidate of pendingIce.get(message.fromId) ?? []) await connection.addIceCandidate(candidate);
-            pendingIce.delete(message.fromId);
-            const answer = await connection.createAnswer();
-            await connection.setLocalDescription(answer);
-            await sendRoomSignal(attemptId, sessionId, message.fromId, "answer", connection.localDescription?.toJSON() ?? answer);
-          } else if (message.type === "answer" && connection.signalingState === "have-local-offer") {
-            await connection.setRemoteDescription(message.payload as RTCSessionDescriptionInit);
-            for (const candidate of pendingIce.get(message.fromId) ?? []) await connection.addIceCandidate(candidate);
-            pendingIce.delete(message.fromId);
-          } else if (message.type === "ice") {
-            const candidate = message.payload as RTCIceCandidateInit;
-            if (connection.remoteDescription) await connection.addIceCandidate(candidate);
-            else pendingIce.set(message.fromId, [...(pendingIce.get(message.fromId) ?? []), candidate]);
-          }
-        }
+        if (outgoingAudioTrackRef.current) await setOutgoingAudioTrack(outgoingAudioTrackRef.current);
       } catch (cause) {
-        if (!stopped) setError(cause instanceof Error ? cause.message : "Live-room connection failed.");
-      } finally {
-        polling = false;
+        if (!stopped) {
+          setIsLive(false);
+          setCameraPublished(false);
+          setError(cause instanceof Error ? cause.message : "Could not join the live exam room.");
+        }
       }
     };
 
-    void poll();
-    const timer = window.setInterval(() => void poll(), 1200);
+    void connect();
     return () => {
       stopped = true;
-      window.clearInterval(timer);
-      for (const connection of connections.values()) connection.close();
-      connections.clear();
-      if (connectionsRef.current === connections) connectionsRef.current = new Map();
-      void fetch(`/api/exam-video/${encodeURIComponent(attemptId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "leave", sessionId }),
-      }).catch(() => undefined);
+      room.removeAllListeners();
+      if (roomRef.current === room) roomRef.current = null;
+      publishedAudioRef.current = null;
+      void room.disconnect(true);
     };
-  }, [attemptId, localStream, role]);
+  }, [attemptId, localStream, role, setOutgoingAudioTrack]);
 
-  return { remoteVideos, remoteAudioStreams, isLive, error, setOutgoingAudioTrack };
+  return { remoteVideos, remoteAudioStreams, isLive, cameraPublished, error, setOutgoingAudioTrack, startAudioPlayback };
 }

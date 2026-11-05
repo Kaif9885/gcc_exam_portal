@@ -15,8 +15,6 @@ const indexes: Record<string, IndexDescription[]> = {
   examAttempts: [{ key: { exam_id: 1, student_id: 1 }, unique: true }, { key: { exam_id: 1, status: 1 } }, { key: { student_id: 1, status: 1 } }],
   studentAnswers: [{ key: { attempt_id: 1, question_id: 1 }, unique: true }],
   examWarnings: [{ key: { attempt_id: 1, count_after: 1 }, unique: true }],
-  examVideoParticipants: [{ key: { attempt_id: 1, participant_id: 1 }, unique: true }, { key: { attempt_id: 1, last_seen: 1 } }],
-  examVideoSignals: [{ key: { attempt_id: 1, to_id: 1, _id: 1 } }, { key: { created_at: 1 } }],
   results: [{ key: { exam_id: 1, student_id: 1 }, unique: true }, { key: { exam_id: 1, marks_obtained: -1, submitted_at: 1 } }, { key: { student_id: 1, submitted_at: -1 } }],
   examPaymentSubmissions: [{ key: { status_token: 1 }, unique: true }, { key: { status: 1, created_at: -1 } }, { key: { exam_group_id: 1, roll_number: 1, subject: 1, chapter_name: 1 } }, { key: { student_id: 1, exam_id: 1, created_at: -1 } }],
   auditLogs: [{ key: { actor_id: 1, created_at: -1 } }, { key: { object_type: 1, object_id: 1 } }],

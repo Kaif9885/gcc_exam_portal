@@ -21,7 +21,7 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 6. Optionally set `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` and server-side `PAYMENT_UPI_ID` to the school's verified QR/payee. The UPI ID is returned to the payment page at runtime so the browser can open a UPI app; it is visible to payment page users. PhonePe is not automatically verified by the app.
 7. Set server-only `TEACHER_LOGIN_PASSWORD=786` and a unique random `TEACHER_SESSION_SECRET` in `.env.local`.
 8. Run `npm run dev`, then visit the local URL shown by Next.js.
-9. For live camera monitoring across mobile networks, configure server-side `TURN_URL`, `TURN_USERNAME` and `TURN_CREDENTIAL` in `.env.local` and in the hosting provider's environment settings. TURN URLs may be comma-separated. STUN alone cannot connect every carrier, school Wi-Fi or NAT; use short-lived credentials from a WebRTC relay provider and redeploy after setting them.
+9. For live camera monitoring, create a LiveKit Cloud project and add its `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to `.env.local` and the hosting provider's server environment. Keep the API secret server-only. Restart locally or redeploy after setting the values. LiveKit Cloud provides the media transport; Metered TURN credentials are not used by this LiveKit room implementation.
 
 ### Environment variables
 
@@ -32,16 +32,16 @@ Responsive Next.js application for a school examination portal. MongoDB Atlas is
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser/server | Legacy public anon key fallback; use only if your project does not provide a publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only | Reserved for trusted administrative jobs; never use in client code or expose as `NEXT_PUBLIC_*` |
 | `NEXT_PUBLIC_PAYMENT_QR_IMAGE_URL` | Browser | Optional school-owned QR image shown in student registration |
-| `TURN_URL` | Server only | Optional comma-separated TURN relay URLs for WebRTC camera connections |
-| `TURN_USERNAME` | Server config | TURN relay username; delivered to authorized active exam sessions |
-| `TURN_CREDENTIAL` | Server config | TURN relay credential; delivered to authorized active exam sessions, so use short-lived credentials |
+| `LIVEKIT_URL` | Server only | LiveKit Cloud WebSocket URL for the project (for example, `wss://…livekit.cloud`) |
+| `LIVEKIT_API_KEY` | Server only | LiveKit project API key used to create scoped participant tokens |
+| `LIVEKIT_API_SECRET` | Server only | LiveKit project API secret; never expose it in browser code or commit it |
 | `MONGODB_URI` | Server only | MongoDB Atlas connection string; keep it private |
 | `MONGODB_DB` | Server only | Database name (defaults to the URI's database if omitted) |
 | `PAYMENT_UPI_ID` | Server (returned to payment page) | Optional school UPI payee address used to open the UPI app; visible to payment page users |
 | `TEACHER_LOGIN_PASSWORD` | Server only | Shared password used by the approved teachers |
 | `TEACHER_SESSION_SECRET` | Server only | Random secret used to sign the teacher login cookie |
 
-TURN settings are read server-side and are not embedded in the client JavaScript bundle. WebRTC clients still need the relay credentials, so authorized exam users can see them in their browser; use provider-issued short-lived credentials rather than treating them as fully private.
+The app creates short-lived, room-scoped LiveKit participant tokens on the server. The API key and secret never go to the browser; only the scoped participant token and project URL do.
 
 ## Current implementation
 
@@ -74,7 +74,6 @@ TURN settings are read server-side and are not embedded in the client JavaScript
 - Failed answer saves are retried on reconnection while the page remains open; queued answers are not durable across an offline refresh. Test network interruption before production.
 - Bulk student/question import, paper editing/deletion, publishing controls for results, and audit-log review UI remain unfinished. Payment references are manually reviewed; a reference is not proof of payment until staff verify it with the school payee.
 - Payment submission requires an existing authorized student account whose full name, roll, board and class match. Students can start after submitting payment details; administrators validate payment records separately against received-payment history.
-- The app no longer requests or streams camera video. Its active-session view lists exam sessions only.
 - The Class 10 boys/girls shared paper uses one `exams` paper plus multiple `exam_group_assignments`; student/attempt records remain distinct. Teacher ranks are computed per `(exam_id, exam_group_id)`, not solely by the shared paper id.
 - CSV/Excel and PDF/Word question import, image storage policies, duplicate-session heartbeat, stronger idempotent warning deduplication, retention policies, backup/restore drills, and end-to-end tests remain to be completed.
 - Validate the migration and all functions in a disposable Supabase project. Have a qualified security reviewer inspect grants, RLS policies, SQL functions and access flows before production.
